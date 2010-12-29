@@ -156,8 +156,8 @@ namespace
         osg::Vec3Array* verts = new osg::Vec3Array();
         verts->reserve( latSegments * lonSegments );
 
-        osg::DrawElements* el = new osg::DrawElementsUShort( GL_TRIANGLES );
-        el->reserveElements( latSegments * lonSegments * 6 );
+        osg::DrawElementsUShort* el = new osg::DrawElementsUShort( GL_TRIANGLES );
+        el->reserve( latSegments * lonSegments * 6 );
 
         for( int y = 0; y < latSegments; ++y )
         {
@@ -173,12 +173,12 @@ namespace
                 {
                     int x_plus_1 = x < lonSegments-1 ? x+1 : 0;
                     int y_plus_1 = y+1; //y < latSegments-1 ? y+1 : 0;
-                    el->addElement( y*lonSegments + x );
-                    el->addElement( y*lonSegments + x_plus_1 );
-                    el->addElement( y_plus_1*lonSegments + x );
-                    el->addElement( y*lonSegments + x_plus_1 );
-                    el->addElement( y_plus_1*lonSegments + x_plus_1 );
-                    el->addElement( y_plus_1*lonSegments + x );
+                    el->push_back( y*lonSegments + x );
+                    el->push_back( y*lonSegments + x_plus_1 );
+                    el->push_back( y_plus_1*lonSegments + x );
+                    el->push_back( y*lonSegments + x_plus_1 );
+                    el->push_back( y_plus_1*lonSegments + x_plus_1 );
+                    el->push_back( y_plus_1*lonSegments + x );
                 }
             }
         }
@@ -201,8 +201,8 @@ namespace
         verts->reserve( 1 + segments );
         geom->setVertexArray( verts );
 
-        osg::DrawElements* el = new osg::DrawElementsUShort( GL_TRIANGLES );
-        el->reserveElements( 1 + 2*segments );
+        osg::DrawElementsUShort* el = new osg::DrawElementsUShort( GL_TRIANGLES );
+        el->reserve( 1 + 2*segments );
         geom->addPrimitiveSet( el );
 
         verts->push_back( osg::Vec3(0,0,0) ); // center point
@@ -215,9 +215,9 @@ namespace
             verts->push_back( osg::Vec3(x, y, 0.0) );
 
             int i_plus_1 = i < segments-1? i+1 : 0;
-            el->addElement( 0 );
-            el->addElement( 1 + i_plus_1 );
-            el->addElement( 1 + i );
+            el->push_back( 0 );
+            el->push_back( 1 + i_plus_1 );
+            el->push_back( 1 + i );
         }
 
         return geom;
@@ -426,11 +426,11 @@ namespace
 SkyNode::SkyNode( Map* map ) :
 _lightPos( osg::Vec3f(0.0f, 1.0f, 0.0f) )
 {
-    const osg::EllipsoidModel* e = map->getProfile()->getSRS()->getGeographicSRS()->getEllipsoid();
-    _innerRadius = e->getRadiusPolar();
+    _ellipsoidModel =  map->getProfile()->getSRS()->getGeographicSRS()->getEllipsoid();
+    _innerRadius = _ellipsoidModel->getRadiusPolar();
     _outerRadius = _innerRadius * 1.025f;
 
-    makeAtmosphere( e );
+    makeAtmosphere( _ellipsoidModel );
     makeSun();
 }
 
@@ -464,6 +464,18 @@ SkyNode::setSunPosition( const osg::Vec3& pos )
 
     if ( _sunXform.valid() )
         _sunXform->setMatrix( osg::Matrix::translate( _sunDistance * _lightPos.x(), _sunDistance * _lightPos.y(), _sunDistance * _lightPos.z() ) );
+}
+
+void
+SkyNode::setSunPosition( double latitudeRad, double longitudeRad )
+{
+    if (_ellipsoidModel.valid())
+    {
+        double x, y, z;
+        _ellipsoidModel->convertLatLongHeightToXYZ(latitudeRad, longitudeRad, 0, x, y, z);
+        osg::Vec3d up  = _ellipsoidModel->computeLocalUpVector(x, y, z);
+        setSunPosition( up );
+    }
 }
 
 void
