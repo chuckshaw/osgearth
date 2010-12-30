@@ -110,7 +110,7 @@ namespace osgEarth { namespace Features
      * A FeatureSource is a pluggable object that generates Features, and 
      * optionally, styling information to go along with them.
      */
-    class OSGEARTHFEATURES_EXPORT FeatureSource : public virtual osg::Object
+    class OSGEARTHFEATURES_EXPORT FeatureSource : public virtual Revisioned<osg::Object> // public virtual osg::Object
     {
     public:      
         /**
@@ -179,7 +179,7 @@ namespace osgEarth { namespace Features
          * feature class. This method is called by the public function getFeatureProfile()
          * in this same object to create the metadata structure.
          */
-        virtual FeatureProfile* createFeatureProfile() =0;
+        virtual const FeatureProfile* createFeatureProfile() =0;
 
         /**
          * DTOR is protected to prevent this object from being allocated on the stack.
