@@ -20,6 +20,7 @@
 #include <osgEarth/ImageUtils>
 #include <osg/Notify>
 #include <osg/Texture>
+#include <osg/ImageSequence>
 #include <string.h>
 #include <memory.h>
 
@@ -35,18 +36,33 @@ ImageUtils::cloneImage( const osg::Image* input )
     // exepected results if you are cloning an image that has already been used in GL.
     // Calling clone->dirty() might work, but we are not sure.
 
+    if ( !input ) return 0L;
+
+    if ( input->className() == "Image" )
+    {
 #if 0
-    osg::Image* clone = new osg::Image( *input );
-    clone->dirty();
+        osg::Image* clone = new osg::Image( *input );
+        clone->dirty();
+        return clone;
 #else
-    osg::Image* clone = new osg::Image();
-    clone->allocateImage( input->s(), input->t(), input->r(), input->getPixelFormat(), input->getDataType(), input->getPacking() );
-    clone->setInternalTextureFormat( input->getInternalTextureFormat() );
-    if ( input->isMipmap() )
-        clone->setMipmapLevels( input->getMipmapLevels() );
-    memcpy( clone->data(), input->data(), input->getTotalSizeInBytesIncludingMipmaps() );
+        osg::Image* clone = new osg::Image();
+        clone->allocateImage( input->s(), input->t(), input->r(), input->getPixelFormat(), input->getDataType(), input->getPacking() );
+        clone->setInternalTextureFormat( input->getInternalTextureFormat() );
+        if ( input->isMipmap() )
+            clone->setMipmapLevels( input->getMipmapLevels() );
+        memcpy( clone->data(), input->data(), input->getTotalSizeInBytesIncludingMipmaps() );
+        return clone;
 #endif
-    return clone;
+    }
+
+    else
+    {
+        // handles Image subclasses.
+        osg::Image* clone = osg::clone( input, osg::CopyOp::DEEP_COPY_ALL );
+        clone->dirty();
+        return clone;
+    }
+
 }
 
 bool
@@ -163,7 +179,7 @@ ImageUtils::resizeImage(const osg::Image* input,
             {
                 float output_col_ratio = (float)output_col/(float)out_s;
                 int input_col = (unsigned int)( output_col_ratio * (float)in_s );
-                if ( input_col >= in_s ) input_col = in_s-1;
+                if ( input_col >= (int)in_s ) input_col = in_s-1;
                 else if ( input_row < 0 ) input_row = 0;
 
                 osg::Vec4 color = read( input_col, input_row ); // read pixel from mip level 0
@@ -458,6 +474,37 @@ ImageUtils::hasAlphaChannel(const osg::Image* image)
         image->getPixelFormat() == GL_RGBA ||
         image->getPixelFormat() == GL_BGRA ||
         image->getPixelFormat() == GL_LUMINANCE_ALPHA );
+}
+
+bool
+ImageUtils::isCompressed(const osg::Image *image)
+{
+    //Later versions of OSG have an Image::isCompressed function but earlier versions like 2.8.3 do not.  This is a workaround so that 
+    //we can tell if an image is compressed on all versions of OSG.
+    switch(image->getPixelFormat())
+    {
+        case(GL_COMPRESSED_ALPHA_ARB):
+        case(GL_COMPRESSED_INTENSITY_ARB):
+        case(GL_COMPRESSED_LUMINANCE_ALPHA_ARB):
+        case(GL_COMPRESSED_LUMINANCE_ARB):
+        case(GL_COMPRESSED_RGBA_ARB):
+        case(GL_COMPRESSED_RGB_ARB):
+        case(GL_COMPRESSED_RGB_S3TC_DXT1_EXT):
+        case(GL_COMPRESSED_RGBA_S3TC_DXT1_EXT):
+        case(GL_COMPRESSED_RGBA_S3TC_DXT3_EXT):
+        case(GL_COMPRESSED_RGBA_S3TC_DXT5_EXT):
+        case(GL_COMPRESSED_SIGNED_RED_RGTC1_EXT):
+        case(GL_COMPRESSED_RED_RGTC1_EXT):
+        case(GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT):
+        case(GL_COMPRESSED_RED_GREEN_RGTC2_EXT):
+        case(GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG): 
+        case(GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG):
+        case(GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG):
+        case(GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG):
+            return true;
+        default:
+            return false;
+    }
 }
 
 //------------------------------------------------------------------------
