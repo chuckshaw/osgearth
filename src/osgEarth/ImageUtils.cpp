@@ -21,8 +21,10 @@
 #include <osg/Notify>
 #include <osg/Texture>
 #include <osg/ImageSequence>
+#include <osgDB/Registry>
 #include <string.h>
 #include <memory.h>
+#include <osgEarth/libdxt.h>
 
 #define LC "[ImageUtils] "
 
@@ -514,6 +516,78 @@ ImageUtils::isCompressed(const osg::Image *image)
         default:
             return false;
     }
+}
+
+osg::Image*
+ImageUtils::compress(osg::Image *image)
+{
+    if (image->getPixelFormat() != GL_RGBA && image->getPixelFormat() != GL_RGB)
+    {
+        OE_WARN << "ImageUtils::compress only supports GL_RGB or GL_RGBA images" << std::endl;
+        return 0;
+    }
+    osg::Timer_t start = osg::Timer::instance()->tick();
+
+    //Clone the image
+    osg::ref_ptr< osg::Image > result;
+
+    //Resize the image to the nearest power of two 
+    if (!osgEarth::ImageUtils::isPowerOfTwo( image ))
+    {            
+        OE_DEBUG << "Resizing" << std::endl;
+        unsigned int s = osg::Image::computeNearestPowerOfTwo( image->s() );
+        unsigned int t = osg::Image::computeNearestPowerOfTwo( image->t() );
+        ImageUtils::resizeImage(image, s, t, result);
+    }
+    else
+    {
+        //Just clone the image, no need to resize
+        result = ImageUtils::cloneImage( image );
+    }
+
+    //Allocate memory for the output
+    unsigned char* out = (unsigned char*)memalign(16, result->s()*result->t()*4);
+    memset(out, 0, result->s()*result->t()*4);
+
+    //FastDXT only works on RGBA imagery so we must convert it
+    if (result->getPixelFormat() != GL_RGBA)
+    {        
+        osg::Timer_t start = osg::Timer::instance()->tick();
+        result = osgEarth::ImageUtils::convertToRGBA8( image );
+        osg::Timer_t end = osg::Timer::instance()->tick();
+        OE_INFO << "conversion to rgba took" << osg::Timer::instance()->delta_m(start, end) << std::endl;
+    }
+
+    //Copy over the source data to an array
+    unsigned char *in = 0;
+    in = (unsigned char*)memalign(16, result->getTotalSizeInBytes());
+    memcpy(in, result->data(0,0), result->getTotalSizeInBytes());
+
+    int format;
+    GLint pixelFormat;
+    if (image->getPixelFormat() == GL_RGB)
+    {
+        format = FORMAT_DXT1;
+        pixelFormat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+    }
+    else
+    {
+        format = FORMAT_DXT5;
+        pixelFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+    }
+
+    int outputBytes = CompressDXT(in, out, result->s(), result->t(), format);
+
+    //Allocate and copy over the output data to the correct size array.
+    unsigned char* data = (unsigned char*)malloc(outputBytes);
+    memcpy(data, out, outputBytes);
+    memfree(out);
+    memfree(in);
+
+    result->setImage(image->s(), image->t(), image->r(), pixelFormat, pixelFormat, GL_UNSIGNED_BYTE, data, osg::Image::USE_MALLOC_FREE);
+    osg::Timer_t end = osg::Timer::instance()->tick();
+    OE_INFO << "ImageUtils compress took " << osg::Timer::instance()->delta_m(start, end) << "ms" << std::endl;
+    return result.release();
 }
 
 //------------------------------------------------------------------------
