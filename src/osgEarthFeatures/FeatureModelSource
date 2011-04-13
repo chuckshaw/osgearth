@@ -23,6 +23,7 @@
 #include <osgEarthFeatures/Common>
 #include <osgEarthFeatures/FeatureSource>
 #include <osgEarthFeatures/FeatureGridder>
+#include <osgEarthFeatures/FeatureDisplaySchema>
 #include <osgEarthSymbology/Style>
 #include <osgEarth/ModelSource>
 #include <osgEarth/Map>
@@ -47,6 +48,7 @@ namespace osgEarth { namespace Features
         optional<Symbology::StyleSheet>& styles() { return _styles; }
         const optional<Symbology::StyleSheet>& styles() const { return _styles; }
 
+        /** deprecated - use the ConvertTypeFilter instead */
         optional<Symbology::Geometry::Type>& geometryTypeOverride() { return _geomTypeOverride; }
         const optional<Symbology::Geometry::Type>& geometryTypeOverride() const { return _geomTypeOverride; }
 
@@ -60,6 +62,9 @@ namespace osgEarth { namespace Features
 
         optional<bool>& enableLighting() { return _lit; }
         const optional<bool>& enableLighting() const { return _lit; }
+
+        optional<FeatureDisplaySchema>& levels() { return _levels; }
+        const optional<FeatureDisplaySchema>& levels() const { return _levels; }
 
     public:
         /** A live feature source instance to use. Note, this does not serialize. */
@@ -80,8 +85,9 @@ namespace osgEarth { namespace Features
     private:
         void fromConfig( const Config& conf );
 
-        optional<FeatureSourceOptions> _featureOptions;
+        optional<FeatureSourceOptions>  _featureOptions;
         optional<Symbology::StyleSheet> _styles;
+        optional<FeatureDisplaySchema>  _levels;
         optional<GriddingPolicy> _gridding;
         optional<Symbology::Geometry::Type> _geomTypeOverride;
         optional<bool> _lit;
