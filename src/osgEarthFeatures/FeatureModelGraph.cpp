@@ -62,12 +62,12 @@ struct osgEarthFeatureModelPseudoLoader : public osgDB::ReaderWriter
             return ReadResult::FILE_NOT_HANDLED;
 
         UID uid;
-        unsigned lod, x, y;
-        sscanf( uri.c_str(), "%u.%d_%d_%d.%*s", &uid, &lod, &x, &y );
+        unsigned levelIndex, x, y;
+        sscanf( uri.c_str(), "%u.%d_%d_%d.%*s", &uid, &levelIndex, &x, &y );
 
         FeatureModelGraph* graph = getGraph(uid);
         if ( graph )
-            return ReadResult( graph->load( lod, x, y, uri ) );
+            return ReadResult( graph->load( levelIndex, x, y, uri ) );
         else
             return ReadResult::ERROR_IN_READING_FILE;
     }
@@ -370,7 +370,7 @@ FeatureModelGraph::build( const FeatureLevel& level, const GeoExtent& extent )
     {
         Query spatialQuery;
         spatialQuery.bounds() = extent.bounds();
-        localQuery = localQuery.and( spatialQuery );
+        localQuery = localQuery.combineWith( spatialQuery );
     }
 
     OE_DEBUG << LC
@@ -417,7 +417,7 @@ FeatureModelGraph::build( const FeatureLevel& level, const GeoExtent& extent )
                 _styles.getStyle( sel.getSelectedStyleName(), style );
 
                 // .. and merge it's query into the existing query
-                Query selectorQuery = localQuery.and( *sel.query() );
+                Query selectorQuery = localQuery.combineWith( *sel.query() );
 
                 // then create the node.
                 osg::Group* styleGroup = createNodeForStyle( style, selectorQuery );
