@@ -25,6 +25,7 @@
 #include <osg/PagedLOD>
 #include <osgDB/FileNameUtils>
 #include <osgDB/ReaderWriter>
+#include <osgDB/WriteFile>
 #include <osgUtil/Optimizer>
 
 #define LC "[FeatureModelGraph] "
@@ -146,7 +147,7 @@ _session( session )
         stateSet->setMode( GL_LIGHTING, *_options.enableLighting() ? 1 : 0 );
     
     // Calculate the usable extent (in both feature and map coordinates) and bounds.
-    const Profile* mapProfile = session->getMap().getProfile();
+    const Profile* mapProfile = session->getMapInfo().getProfile();
 
     // the part of the feature extent that will fit on the map (in map coords):
     _usableMapExtent = mapProfile->clampAndTransformExtent( 
@@ -155,7 +156,6 @@ _session( session )
 
     // same, back into feature coords:
     _usableFeatureExtent = _usableMapExtent.transform( _source->getFeatureProfile()->getSRS() );
-    //_usableFeatureProfile = new FeatureProfile( _usableFeatureExtent );
 
     // world-space bounds of the feature layer
     _fullWorldBound = getBoundInWorldCoords( _usableMapExtent );
@@ -168,7 +168,7 @@ _session( session )
     }
     else
     {
-        FeatureLevel defaultLevel( 0.0f, FLT_MAX, Query() );
+        FeatureLevel defaultLevel( 0.0f, FLT_MAX );
         osg::Node* node = build( defaultLevel, GeoExtent::INVALID, 0 );
         if ( node )
             this->addChild( node );
@@ -200,7 +200,7 @@ FeatureModelGraph::getBoundInWorldCoords( const GeoExtent& extent ) const
     corner.x() = workingExtent.xMin();
     corner.y() = workingExtent.yMin();
 
-    if ( _session->getMap().getMapInfo().isGeocentric() )
+    if ( _session->getMapInfo().isGeocentric() )
     {
         workingExtent.getSRS()->transformToECEF( center, center );
         workingExtent.getSRS()->transformToECEF( corner, corner );
@@ -217,14 +217,14 @@ FeatureModelGraph::setupPaging()
     {
         osg::BoundingSphered bs = getBoundInWorldCoords( _usableMapExtent );
 
-        //const GeoExtent& fullExtent = _source->getFeatureProfile()->getExtent();
-        //osg::BoundingSphered bs = getBoundInWorldCoords( fullExtent );
-
         float tileFactor = _options.levels().isSet() ? _options.levels()->tileSizeFactor().get() : 15.0f;
 
         const FeatureLevel* firstLevel = 0;
         unsigned firstLOD = 0;
-        FeatureLevel defaultLevel( 0.0f, bs.radius() * tileFactor, Query() );
+
+        FeatureLevel defaultLevel( 0.0f, FLT_MAX );
+        FeatureLevel defaultTiledLevel( 0.0f, bs.radius() * tileFactor );
+
         if (_options.levels().isSet() && _options.levels()->getNumLevels() > 0)
         {
             firstLevel = _options.levels()->getLevel( 0 );
@@ -232,6 +232,11 @@ FeatureModelGraph::setupPaging()
         }
         else if (_source->getFeatureProfile()->getTiled())
         {            
+            firstLOD = 0;
+            firstLevel = &defaultTiledLevel;
+        }
+        else
+        {
             firstLOD = 0;
             firstLevel = &defaultLevel;
         }
@@ -244,13 +249,13 @@ FeatureModelGraph::setupPaging()
 }
 
 void
-FeatureModelGraph::buildSubTiles(unsigned nextLevelIndex,
-                                 unsigned lod,
-                                 unsigned tileX,
-                                 unsigned tileY,
+FeatureModelGraph::buildSubTiles(unsigned            nextLevelIndex,
+                                 unsigned            lod,
+                                 unsigned            tileX,
+                                 unsigned            tileY,
                                  const FeatureLevel* nextLevel,
-                                 unsigned nextLOD,
-                                 osg::Group* parent)
+                                 unsigned            nextLOD,
+                                 osg::Group*         parent)
 {
     // calculate how many subtiles there will be:
     unsigned numTiles = 1;
@@ -261,12 +266,10 @@ FeatureModelGraph::buildSubTiles(unsigned nextLevelIndex,
         numTiles *= 2;
     }
 
-    OE_INFO << LC 
+    OE_DEBUG << LC 
         << "Building " << numTiles*numTiles << " plods for next level = " << nextLevelIndex
         << ", nextLOD = " << nextLOD
         << std::endl;
-
-    //const GeoExtent& fullExtent = _source->getFeatureProfile()->getExtent();
 
     // make a paged LOD for each subtile:
     for( unsigned u = tileX; u < tileX+numTiles; ++u )
@@ -301,7 +304,7 @@ FeatureModelGraph::buildSubTiles(unsigned nextLevelIndex,
                 plod->setCenter  ( subtile_bs.center() );
                 plod->setRadius  ( subtile_bs.radius() );
                 plod->setFileName( 0, uri );
-                plod->setRange   ( 0, nextLevel->minRange(), nextLevel->maxRange() );
+                plod->setRange   ( 0, 0, nextLevel->maxRange() ); // nextLevel->minRange(), nextLevel->maxRange() );
 
                 parent->addChild( plod );
             }
@@ -337,7 +340,7 @@ FeatureModelGraph::load( unsigned levelIndex, unsigned tileX, unsigned tileY, co
         float tileFactor = _options.levels().isSet() ? _options.levels()->tileSizeFactor().get() : 15.0f;
 
         double maxRange =  tileBound.radius() * tileFactor;
-        FeatureLevel level(0,maxRange, Query());                
+        FeatureLevel level( 0, maxRange );
         
         TileKey key(lod, tileX, tileY, _source->getFeatureProfile()->getProfile());
         osg::Node* geometry = build( level, tileExtent, &key );
@@ -347,7 +350,7 @@ FeatureModelGraph::load( unsigned levelIndex, unsigned tileX, unsigned tileY, co
         {
             // see if there are any more levels. If so, build some pagedlods to bring the
             // next one in.
-            FeatureLevel nextLevel(0, maxRange/2.0, Query());
+            FeatureLevel nextLevel(0, maxRange/2.0);
 
             osg::ref_ptr<osg::Group> group = new osg::Group();
 
@@ -368,7 +371,7 @@ FeatureModelGraph::load( unsigned levelIndex, unsigned tileX, unsigned tileY, co
     else if ( !_options.levels().isSet() || _options.levels()->getNumLevels() == 0 )
     {
         // no levels defined; just load all the features.
-        FeatureLevel all( 0.0f, FLT_MAX, Query() );
+        FeatureLevel all( 0.0f, FLT_MAX );
         result = build( all, GeoExtent::INVALID, 0 );
     }
     else
@@ -436,36 +439,78 @@ FeatureModelGraph::load( unsigned levelIndex, unsigned tileX, unsigned tileY, co
 osg::Node*
 FeatureModelGraph::build( const FeatureLevel& level, const GeoExtent& extent, const TileKey* key )
 {
-    OE_INFO << LC
-        << "Build started"
-        << std::endl;
-
     osg::ref_ptr<osg::Group> group = new osg::Group();
 
-    Query localQuery = *level.query();
+    // form the baseline query, which does a spatial query based on the working extent.
+    Query query;
     if ( extent.isValid() )
+        query.bounds() = extent.bounds();
+
+    // add a tile key to the query if there is one, to support TFS-style queries
+    if ( key )
+        query.tileKey() = *key;
+
+    // now, go through any level-based selectors.
+    const StyleSelectorVector& levelSelectors = level.selectors();
+    
+    // if there are none, just build once with the default style and query.
+    if ( levelSelectors.size() == 0 )
     {
-        Query spatialQuery;
-        spatialQuery.bounds() = extent.bounds();
-        localQuery = localQuery.combineWith( spatialQuery );
+        osg::Node* node = build( Style(), query, extent );
+        if ( node )
+            group->addChild( node );
     }
 
-    //If we have a key, pass it into the query
-    if (key)
+    else
     {
-        localQuery.tileKey() = *key;
-    }    
+        for( StyleSelectorVector::const_iterator i = levelSelectors.begin(); i != levelSelectors.end(); ++i )
+        {
+            const StyleSelector& selector = *i;
 
-    OE_DEBUG << LC
-        << "local query = " << localQuery.getConfig().toString()
-        << std::endl;
+            // fetch the selector's style:
+            Style selectorStyle;
+            _styles.getStyle( selector.getSelectedStyleName(), selectorStyle );
+
+            // combine the selector's query, if it has one:
+            Query selectorQuery = 
+                selector.query().isSet() ? query.combineWith( *selector.query() ) : query;
+
+            osg::Node* node = build( selectorStyle, selectorQuery, extent );
+            if ( node )
+                group->addChild( node );
+        }
+    }
+
+    if ( group->getNumChildren() > 0 )
+    {
+        // account for a min-range here.
+        if ( level.minRange() > 0.0f )
+        {
+            osg::LOD* lod = new osg::LOD();
+            lod->addChild( group.get(), level.minRange(), FLT_MAX );
+            group = lod;
+        }
+
+        return group.release();
+    }
+
+    else
+    {
+        return 0L;
+    }
+}
+
+osg::Node*
+FeatureModelGraph::build( const Style& baseStyle, const Query& baseQuery, const GeoExtent& workingExtent )
+{
+    osg::ref_ptr<osg::Group> group = new osg::Group();
 
     if ( _source->hasEmbeddedStyles() )
     {
         const FeatureProfile* profile = _source->getFeatureProfile();
 
         // each feature has its own style, so use that and ignore the style catalog.
-        osg::ref_ptr<FeatureCursor> cursor = _source->createFeatureCursor( localQuery );
+        osg::ref_ptr<FeatureCursor> cursor = _source->createFeatureCursor( baseQuery );
         while( cursor->hasMore() )
         {
             Feature* feature = cursor->nextFeature();
@@ -475,13 +520,19 @@ FeatureModelGraph::build( const FeatureLevel& level, const GeoExtent& extent, co
                 list.push_back( feature );
                 osg::ref_ptr<FeatureCursor> cursor = new FeatureListCursor(list);
 
-                FilterContext context( _session.get(), _source->getFeatureProfile(), extent );
+                FilterContext context( _session.get(), _source->getFeatureProfile(), workingExtent );
 
                 // note: gridding is not supported for embedded styles.
                 osg::ref_ptr<osg::Node> node;
-                if ( _factory->createOrUpdateNode( cursor, feature->style().get(), context, node ) )
+
+                osg::Group* styleGroup = _factory->getOrCreateStyleGroup(*feature->style(), _session.get());
+                if ( !group->containsNode( styleGroup ) )
+                    group->addChild( styleGroup );                
+
+                if ( _factory->createOrUpdateNode( cursor, *feature->style(), context, node ) )
                 {
-                    group->addChild( node );
+                    if ( node.valid() )
+                        styleGroup->addChild( node );
                 }
             }
         }
@@ -496,15 +547,18 @@ FeatureModelGraph::build( const FeatureLevel& level, const GeoExtent& extent, co
             {
                 // pull the selected style...
                 const StyleSelector& sel = *i;
-                Style* style;
-                _styles.getStyle( sel.getSelectedStyleName(), style );
+
+                // combine the selection style with the incoming base style:
+                Style selectedStyle;
+                _styles.getStyle( sel.getSelectedStyleName(), selectedStyle );
+                Style combinedStyle = baseStyle.combineWith( selectedStyle );
 
                 // .. and merge it's query into the existing query
-                Query selectorQuery = localQuery.combineWith( *sel.query() );
+                Query combinedQuery = baseQuery.combineWith( *sel.query() );
 
                 // then create the node.
-                osg::Group* styleGroup = createNodeForStyle( style, selectorQuery );
-                if ( styleGroup )
+                osg::Group* styleGroup = createNodeForStyle( combinedStyle, combinedQuery );
+                if ( styleGroup && !group->containsNode(styleGroup) )
                     group->addChild( styleGroup );
             }
         }
@@ -512,22 +566,23 @@ FeatureModelGraph::build( const FeatureLevel& level, const GeoExtent& extent, co
         // otherwise, render all the features with a single style
         else
         {
-            const Style* style = _styles.getDefaultStyle();
-            osg::Group* styleGroup = createNodeForStyle( style, localQuery );
-            if ( styleGroup )
+            Style combinedStyle = baseStyle;
+
+            // if there's no base style defined, choose a "default" style from the stylesheet.
+            if ( baseStyle.empty() )
+                _styles.getDefaultStyle( combinedStyle );
+
+            osg::Group* styleGroup = createNodeForStyle( combinedStyle, baseQuery );
+            if ( styleGroup && !group->containsNode(styleGroup) )
                 group->addChild( styleGroup );
         }
     }
-
-    OE_DEBUG << LC
-        << "Build complete"
-        << std::endl;
 
     return group->getNumChildren() > 0 ? group.release() : 0L;
 }
 
 osg::Group*
-FeatureModelGraph::createNodeForStyle(const Style* style, const Query& query)
+FeatureModelGraph::createNodeForStyle(const Style& style, const Query& query)
 {
     osg::Group* styleGroup = 0L;
 
@@ -547,7 +602,9 @@ FeatureModelGraph::createNodeForStyle(const Style* style, const Query& query)
 
         FilterContext context( _session.get(), profile, GeoExtent(profile->getSRS(), cellBounds) );
 
-        // start by cropping our feature list to the working extent.
+        // start by culling our feature list to the working extent. By default, this is done by
+        // checking feature centroids. But the user can override this to crop feature geometry to
+        // the cell boundaries.
         FeatureList workingSet;
         cursor->fill( workingSet );
         CropFilter crop( 
@@ -555,7 +612,7 @@ FeatureModelGraph::createNodeForStyle(const Style* style, const Query& query)
             CropFilter::METHOD_CROPPING : CropFilter::METHOD_CENTROID );
         context = crop.push( workingSet, context );
 
-        // next, if the usable extent is less than the full extent (i.e. we had to crop the feature
+        // next, if the usable extent is less than the full extent (i.e. we had to clamp the feature
         // extent to fit on the map), calculate the extent of the features in this tile and 
         // crop to the map extent if necessary. (Note, if cropFeatures was set to true, this is
         // already done)
@@ -573,204 +630,68 @@ FeatureModelGraph::createNodeForStyle(const Style* style, const Query& query)
 
             osg::ref_ptr<FeatureCursor> newCursor = new FeatureListCursor(workingSet);
 
-            if ( _factory->createOrUpdateNode( newCursor.get(), style, context, node ) && node.valid() )
+            if ( _factory->createOrUpdateNode( newCursor.get(), style, context, node ) )
             {
                 if ( !styleGroup )
-                    styleGroup = new osg::Group();
+                    styleGroup = _factory->getOrCreateStyleGroup( style, _session.get() );
 
-                styleGroup->addChild( node.get() );
-            }
-
-            // if the method created a node, and we are building a geocentric map,
-            // apply a cluster culler.
-            if ( node.valid() )
-            {
-                const MapInfo& mi = _session->getMapInfo();
-
-                if ( mi.isGeocentric() && _options.clusterCulling() == true )
-                {
-                    const SpatialReference* mapSRS = mi.getProfile()->getSRS()->getGeographicSRS();
-                    GeoExtent cellExtent( extent.getSRS(), cellBounds );
-                    GeoExtent mapCellExtent = cellExtent.transform( mapSRS );
-
-                    // get the cell center as ECEF:
-                    double cx, cy;
-                    mapCellExtent.getCentroid( cx, cy );
-                    osg::Vec3d ecefCenter;
-                    mapSRS->transformToECEF( osg::Vec3d(cy, cy, 0.0), ecefCenter );
-
-                    // get the cell corner as ECEF:
-                    osg::Vec3d ecefCorner;
-                    mapSRS->transformToECEF( osg::Vec3d(mapCellExtent.xMin(), mapCellExtent.yMin(), 0.0), ecefCorner );
-
-                    // normal vector at the center of the cell:
-                    osg::Vec3d normal = mapSRS->getEllipsoid()->computeLocalUpVector(
-                        ecefCenter.x(), ecefCenter.y(), ecefCenter.z() );
-
-                    // the "deviation" determines how far below the tangent plane of the cell your
-                    // camera has to be before culling occurs. 0.0 is at the plane; -1.0 is 90deg
-                    // below the plane (which means never cull).
-                    osg::Vec3d radialVector = ecefCorner - ecefCenter;
-                    double radius = radialVector.length();
-                    radialVector.normalize();
-                    double minDotProduct = radialVector * normal;
-
-                    osg::ClusterCullingCallback* ccc = new osg::ClusterCullingCallback();
-                    ccc->set( ecefCenter, normal, minDotProduct, radius );
-
-                    node->setCullCallback( ccc );
-
-                    OE_DEBUG << LC
-                        << "Cell: " << mapCellExtent.toString()
-                        << ": centroid = " << cx << "," << cy
-                        << "; normal = " << normal.x() << "," << normal.y() << "," << normal.z()
-                        << "; dev = " << minDotProduct
-                        << "; radius = " << radius
-                        << std::endl;
-                }
-            }
-        }
-    }
-
-    return styleGroup;
-}
-
-#if 0
-// if necessary, this method will grid up the features (according to the gridding
-// policy) and then proceed to build sorted style groups for each grid cell.
-osg::Group*
-FeatureModelGraph::gridAndCreateNodeForStyle(const Symbology::Style* style,
-                                             const Symbology::Query& query )
-{
-    osg::Group* styleGroup = 0L;
-
-    // the profile of the features
-    const FeatureProfile* profile = _source->getFeatureProfile();
-
-    // get the extent of the full set of feature data:
-    const GeoExtent& extent = profile->getExtent();
-
-    // next set up a gridder/cropper:
-    FeatureGridder gridder( extent.bounds(), *_options.gridding() );
-
-    // now query the feature source once for each grid cell extent:
-    for( unsigned cell = 0; cell < gridder.getNumCells(); ++cell )
-    {
-        Bounds cellBounds;
-        if ( gridder.getCellBounds( cell, cellBounds ) )
-        {
-            // incorporate the cell bounds into the query:
-            Query localQuery = query;
-            localQuery.bounds() = query.bounds().isSet()?
-                query.bounds()->unionWith( cellBounds ) :
-                cellBounds;
-
-            // query the feature source:
-            osg::ref_ptr<FeatureCursor> cursor = _source->createFeatureCursor( localQuery );
-
-            // now copy the resulting feature set into a list, converting the data
-            // types along the way if a geometry override is in place:
-            FeatureList cellFeatures;
-            while( cursor->hasMore() )
-            {
-                Feature* feature = cursor->nextFeature();
-                Geometry* geom = feature->getGeometry();
-                if ( geom )
-                {
-                    // apply a type override if requested:
-                    if ( _options.geometryTypeOverride().isSet() && _options.geometryTypeOverride() != geom->getComponentType() )
-                    {
-                        geom = geom->cloneAs( *_options.geometryTypeOverride() );
-                        if ( geom )
-                            feature->setGeometry( geom );
-                    }
-                }
-                if ( geom )
-                {
-                    cellFeatures.push_back( feature );
-                }
-            }
-
-            // cut the features so they fall completely within the cell. Note, we only need to 
-            // do this is gridding is enabled.
-            if ( gridder.getNumCells() > 1 )
-            {
-                gridder.cullFeatureListToCell( cell, cellFeatures );
-            }
-
-            if ( cellFeatures.size() > 0 )
-            {
-                // next ask the implementation to construct OSG geometry for the cell features.
-                osg::ref_ptr<osg::Node> node;
-
-                if ( _factory->createOrUpdateNode( cellFeatures, profile, style, _session.get(), node ) && node.valid() )
-                {
-                    if ( !styleGroup )
-                        styleGroup = new osg::Group();
-
-                    styleGroup->addChild( node.get() );
-                }
-
-                // if the method created a node, and we are building a geocentric map,
-                // apply a cluster culler.
+                // if it returned a node, add it. (it doesn't necessarily have to)
                 if ( node.valid() )
-                {
-                    const MapInfo& mi = _session->getMapInfo();
+                    styleGroup->addChild( node.get() );
+            }
+        }
 
-                    if ( mi.isGeocentric() && _options.gridding()->clusterCulling() == true )
-                    {
-                        const SpatialReference* mapSRS = mi.getProfile()->getSRS()->getGeographicSRS();
-                        GeoExtent cellExtent( extent.getSRS(), cellBounds );
-                        GeoExtent mapCellExtent = cellExtent.transform( mapSRS );
+        // if the method created a node, and we are building a geocentric map,
+        // apply a cluster culler.
+        // TODO: this should probably go one level up instead.
+        if ( styleGroup )
+        {
+            const MapInfo& mi = _session->getMapInfo();
 
-                        // get the cell center as ECEF:
-                        double cx, cy;
-                        mapCellExtent.getCentroid( cx, cy );
-                        osg::Vec3d ecefCenter;
-                        mapSRS->transformToECEF( osg::Vec3d(cy, cy, 0.0), ecefCenter );
+            if ( mi.isGeocentric() && _options.clusterCulling() == true )
+            {
+                const SpatialReference* mapSRS = mi.getProfile()->getSRS()->getGeographicSRS();
+                GeoExtent cellExtent( extent.getSRS(), cellBounds );
+                GeoExtent mapCellExtent = cellExtent.transform( mapSRS );
 
-                        // get the cell corner as ECEF:
-                        osg::Vec3d ecefCorner;
-                        mapSRS->transformToECEF( osg::Vec3d(mapCellExtent.xMin(), mapCellExtent.yMin(), 0.0), ecefCorner );
+                // get the cell center as ECEF:
+                double cx, cy;
+                mapCellExtent.getCentroid( cx, cy );
+                osg::Vec3d ecefCenter;
+                mapSRS->transformToECEF( osg::Vec3d(cy, cy, 0.0), ecefCenter );
 
-                        // normal vector at the center of the cell:
-                        osg::Vec3d normal = mapSRS->getEllipsoid()->computeLocalUpVector(
-                            ecefCenter.x(), ecefCenter.y(), ecefCenter.z() );
+                // get the cell corner as ECEF:
+                osg::Vec3d ecefCorner;
+                mapSRS->transformToECEF( osg::Vec3d(mapCellExtent.xMin(), mapCellExtent.yMin(), 0.0), ecefCorner );
 
-                        // the "deviation" determines how far below the tangent plane of the cell your
-                        // camera has to be before culling occurs. 0.0 is at the plane; -1.0 is 90deg
-                        // below the plane (which means never cull).
-                        osg::Vec3d radialVector = ecefCorner - ecefCenter;
-                        double radius = radialVector.length();
-                        radialVector.normalize();
-                        double minDotProduct = radialVector * normal;
+                // normal vector at the center of the cell:
+                osg::Vec3d normal = mapSRS->getEllipsoid()->computeLocalUpVector(
+                    ecefCenter.x(), ecefCenter.y(), ecefCenter.z() );
 
-                        osg::ClusterCullingCallback* ccc = new osg::ClusterCullingCallback();
-                        ccc->set( ecefCenter, normal, minDotProduct, radius );
+                // the "deviation" determines how far below the tangent plane of the cell your
+                // camera has to be before culling occurs. 0.0 is at the plane; -1.0 is 90deg
+                // below the plane (which means never cull).
+                osg::Vec3d radialVector = ecefCorner - ecefCenter;
+                double radius = radialVector.length();
+                radialVector.normalize();
+                double minDotProduct = radialVector * normal;
 
-                        node->setCullCallback( ccc );
+                osg::ClusterCullingCallback* ccc = new osg::ClusterCullingCallback();
+                ccc->set( ecefCenter, normal, minDotProduct, radius );
 
-                        OE_NOTICE
-                            << "Cell: " << mapCellExtent.toString()
-                            << ": centroid = " << cx << "," << cy
-                            << "; normal = " << normal.x() << "," << normal.y() << "," << normal.z()
-                            << "; dev = " << minDotProduct
-                            << "; radius = " << radius
-                            << std::endl;
-                    }
-                }
+                styleGroup->setCullCallback( ccc );
+
+                OE_DEBUG << LC
+                    << "Cell: " << mapCellExtent.toString()
+                    << ": centroid = " << cx << "," << cy
+                    << "; normal = " << normal.x() << "," << normal.y() << "," << normal.z()
+                    << "; dev = " << minDotProduct
+                    << "; radius = " << radius
+                    << std::endl;
             }
         }
     }
 
-    // run the SpatializeGroups optimization pass on the result
-    if ( styleGroup && _options.gridding()->spatializeGroups() == true )
-    {
-        //OE_DEBUG << LC << context->getModelSource()->getName() << ": running spatial optimization" << std::endl;
-        osgUtil::Optimizer optimizer;
-        optimizer.optimize( styleGroup, osgUtil::Optimizer::SPATIALIZE_GROUPS );
-    }
 
     return styleGroup;
 }
-#endif 

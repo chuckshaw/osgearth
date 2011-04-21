@@ -16,37 +16,24 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
-
-#ifndef OSGEARTHSYMBOLOGY_GEOMETRY_RASTERIZER_H
-#define OSGEARTHSYMBOLOGY_GEOMETRY_RASTERIZER_H 1
+#ifndef OSGEARTHSYMBOLOGY_MESH_CONSOLIDATOR
+#define OSGEARTHSYMBOLOGY_MESH_CONSOLIDATOR
 
 #include <osgEarthSymbology/Common>
-#include <osgEarthSymbology/Geometry>
-#include <osgEarthSymbology/Style>
-#include <osg/Image>
+#include <osg/Geometry>
+#include <osg/PrimitiveSet>
 
 namespace osgEarth { namespace Symbology
 {
     /**
-     * A query filter that you can use to limit a set of symbology to process.
+     * Consolidates all the like-moded primitive sets in a geometry.
      */
-    class OSGEARTHSYMBOLOGY_EXPORT GeometryRasterizer
+    class OSGEARTHSYMBOLOGY_EXPORT MeshConsolidator
     {
     public:
-        GeometryRasterizer( int width, int height, const Style& style =Style() );
-
-        /** draws the geometry to the image. */
-        void draw( const Geometry* geom, const osg::Vec4f& color =osg::Vec4f(1,1,1,1) );
-
-        /** finishes the image and returns it. calls to draw() after this will have no effect. */
-        osg::Image* finalize();
-
-    private:
-        osg::ref_ptr<osg::Image>      _image;
-        Style                         _style;
-        osg::ref_ptr<osg::Referenced> _state;
+        static void run( osg::Geometry& geom );
     };
 
 } } // namespace osgEarth::Symbology
 
-#endif // OSGEARTHSYMBOLOGY_GEOMETRY_RASTERIZER_H
+#endif // OSGEARTHSYMBOLOGY_MESH_CONSOLIDATOR

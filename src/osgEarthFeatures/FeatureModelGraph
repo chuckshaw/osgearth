@@ -65,16 +65,6 @@ namespace osgEarth { namespace Features
             Session*                         session );
 
         /**
-         * Creates or update feature node data.
-         *
-         * @param session
-         *      Shared session data for all feature sets in this graph
-         * @param styles
-         *      Styles and selectors to use to render the feature data
-         */
-        //void update( Session* session, const StyleSheet& styles );
-
-        /**
          * Loads and returns a subnode. Used internally for paging.
          */
         osg::Node* load( unsigned lod, unsigned tileX, unsigned tileY, const std::string& uri );
@@ -86,9 +76,11 @@ namespace osgEarth { namespace Features
 
         osg::Node* build( const FeatureLevel& level, const GeoExtent& extent, const TileKey* key);
 
+        osg::Node* build( const Style& baseStyle, const Query& baseQuery, const GeoExtent& extent );
+
     private:
         
-        osg::Group* createNodeForStyle(const Style* style, const Query& query);
+        osg::Group* createNodeForStyle(const Style& style, const Query& query);
        
         osg::BoundingSphered getBoundInWorldCoords( const GeoExtent& extent ) const;
 
