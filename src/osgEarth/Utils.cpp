@@ -16,26 +16,6 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
-#ifndef OSGEARTHSYMBOLOGY_MESH_CONSOLIDATOR
-#define OSGEARTHSYMBOLOGY_MESH_CONSOLIDATOR
 
-#include <osgEarthSymbology/Common>
-#include <osg/Geode>
-#include <osg/Geometry>
+#include <osgEarth/Utils>
 
-namespace osgEarth { namespace Symbology
-{
-    /**
-     * Consolidates all the like-moded primitive sets in a geometry.
-     */
-    class OSGEARTHSYMBOLOGY_EXPORT MeshConsolidator
-    {
-    public:
-        static void run( osg::Geometry& geom );
-
-        static void run( osg::Geode& geode );
-    };
-
-} } // namespace osgEarth::Symbology
-
-#endif // OSGEARTHSYMBOLOGY_MESH_CONSOLIDATOR

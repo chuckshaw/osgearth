@@ -52,6 +52,7 @@ SET(LIB_PUBLIC_HEADERS
     MaskSource
     ModelLayer
     ModelSource
+    NodeUtils
 	Notify
 	OverlayDecorator
     Profile
@@ -118,6 +119,7 @@ ADD_LIBRARY(${LIB_NAME} SHARED
 	MimeTypes.cpp
 	ModelLayer.cpp
 	ModelSource.cpp
+	NodeUtils.cpp
 	Notify.cpp
 	OverlayDecorator.cpp
     Profile.cpp
@@ -143,6 +145,7 @@ ADD_LIBRARY(${LIB_NAME} SHARED
     tinyxmlparser.cpp
     TMS.cpp
     Units.cpp
+    Utils.cpp
     Version.cpp
     VerticalSpatialReference.cpp
     XmlUtils.cpp

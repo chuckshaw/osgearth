@@ -832,8 +832,9 @@ SpatialReference::transformToECEF(const osg::Vec3d& input,
         transform( input.x(), input.y(), getGeographicSRS(), lon, lat );
 
     // then convert to ECEF.
+    double z = input.z();
     getGeographicSRS()->getEllipsoid()->convertLatLongHeightToXYZ(
-        osg::DegreesToRadians( lat ), osg::DegreesToRadians( lon ), input.z(),
+        osg::DegreesToRadians( lat ), osg::DegreesToRadians( lon ), z,
         output.x(), output.y(), output.z() );
 
     return true;
@@ -1002,10 +1003,6 @@ SpatialReference::init()
         // calls the internal version, which can be overriden by the developer.
         // therefore do not call init() from the constructor!
         _init();
-    }
-    else
-    {
-        OE_INFO << LC << "********** GOOD, double-checked worked" << std::endl;
     }
 }
 

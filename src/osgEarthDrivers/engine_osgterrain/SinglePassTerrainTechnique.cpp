@@ -34,6 +34,7 @@
 #include <osgUtil/SmoothingVisitor>
 
 #include <osgEarthSymbology/Geometry>
+#include <osgEarthSymbology/MeshConsolidator>
 
 #include <sstream>
 
@@ -550,19 +551,32 @@ SinglePassTerrainTechnique::createGeometry( const CustomTileFrame& tilef )
     osg::Geometry* surface = new osg::Geometry();
     surface->setThreadSafeRefUnref(true); // TODO: probably unnecessary.
     surface->setDataVariance( osg::Object::DYNAMIC );
+    surface->setUseDisplayList(false);
+    surface->setUseVertexBufferObjects(true);
     geode->addDrawable( surface );
 
     osg::Geometry* skirt = new osg::Geometry();
     skirt->setThreadSafeRefUnref(true); // TODO: probably unnecessary.
     skirt->setDataVariance( osg::Object::DYNAMIC );
+    skirt->setUseDisplayList(false);
+    skirt->setUseVertexBufferObjects(true);
     geode->addDrawable( skirt );
 
-    osg::Geometry* mask_skirt = new osg::Geometry();
-    mask_skirt->setThreadSafeRefUnref(true);
-    mask_skirt->setDataVariance( osg::Object::DYNAMIC );
-    //mask_skirt->getOrCreateStateSet()->setAttribute(new osg::Point( 5.0f ), osg::StateAttribute::ON);
-    geode->addDrawable( mask_skirt);
-        
+    // see if we're using a Mask geometry:
+    osg::Vec3dArray* mask = tilef._mask.valid() ? tilef._mask.get() : 0L;
+
+    osg::Geometry* mask_skirt = 0L;
+    if ( mask )
+    {
+        new osg::Geometry();
+        mask_skirt->setThreadSafeRefUnref(true);
+        mask_skirt->setDataVariance( osg::Object::DYNAMIC );
+        mask_skirt->setUseDisplayList(false);
+        mask_skirt->setUseVertexBufferObjects(true);
+        //mask_skirt->getOrCreateStateSet()->setAttribute(new osg::Point( 5.0f ), osg::StateAttribute::ON);
+        geode->addDrawable( mask_skirt);
+    }
+            
     unsigned int numRows = 20;
     unsigned int numColumns = 20;
     
@@ -653,7 +667,8 @@ SinglePassTerrainTechnique::createGeometry( const CustomTileFrame& tilef )
                 r._skirtTexCoords = new osg::Vec2Array();
                 r._skirtTexCoords->reserve( numVerticesInSkirt );
 
-                r._maskSkirtTexCoords = new osg::Vec2Array();
+                if ( mask )
+                    r._maskSkirtTexCoords = new osg::Vec2Array();
 
                 r._locator = locator;
                 if ( locator->getCoordinateSystemType() == osgTerrain::Locator::GEOCENTRIC )
@@ -665,7 +680,10 @@ SinglePassTerrainTechnique::createGeometry( const CustomTileFrame& tilef )
 
                 _texCompositor->assignTexCoordArray( surface, colorLayer.getUID(), r._texCoords );
                 _texCompositor->assignTexCoordArray( skirt, colorLayer.getUID(), r._skirtTexCoords );
-                _texCompositor->assignTexCoordArray( mask_skirt, colorLayer.getUID(), r._maskSkirtTexCoords );
+
+                if (mask)
+                    _texCompositor->assignTexCoordArray( mask_skirt, colorLayer.getUID(), r._maskSkirtTexCoords );
+
                 //surface->setTexCoordArray( renderLayers.size(), r._texCoords );
                 renderLayers.push_back( r );
             }
@@ -698,7 +716,6 @@ SinglePassTerrainTechnique::createGeometry( const CustomTileFrame& tilef )
     unsigned int i, j; //, k=0;
 
     osgEarth::GeoLocator* geoLocator = _masterLocator->getGeographicFromGeocentric();
-    osg::Vec3dArray* mask = tilef._mask.valid() ? tilef._mask.get() : 0L;
 
     //Find the mask bounds in local coords
     osg::Vec3d mask_min_ndc, mask_max_ndc;
@@ -1528,16 +1545,15 @@ SinglePassTerrainTechnique::createGeometry( const CustomTileFrame& tilef )
         }
     }
 
-    surface->setUseDisplayList(false);
-    surface->setUseVertexBufferObjects(true);
+    MeshConsolidator::run( *surface );
 
-    skirt->setUseDisplayList(false);
-    skirt->setUseVertexBufferObjects(true);
+    if ( skirt )
+        MeshConsolidator::run( *skirt );
 
-    mask_skirt->setUseDisplayList(false);
-    mask_skirt->setUseVertexBufferObjects(true);
+    if ( mask_skirt )
+        MeshConsolidator::run( *mask_skirt );
     
-    
+   
     if (osgDB::Registry::instance()->getBuildKdTreesHint()==osgDB::ReaderWriter::Options::BUILD_KDTREES &&
         osgDB::Registry::instance()->getKdTreeBuilder())
     {            

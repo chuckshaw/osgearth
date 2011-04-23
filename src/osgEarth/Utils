@@ -142,7 +142,6 @@ namespace osgEarth
             return _queries > 0 ? (float)_hits/(float)_queries : 0.0f;
         }
     };
-
 }
 
 #endif // OSGEARTH_CACHING_H
