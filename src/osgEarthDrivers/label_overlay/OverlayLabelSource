@@ -16,8 +16,8 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
-#ifndef OSGEARTH_DRIVER_FEATURE_LABEL_MODEL_OPTIONS
-#define OSGEARTH_DRIVER_FEATURE_LABEL_MODEL_OPTIONS 1
+#ifndef OSGEARTH_DRIVER_FEATURE_SUB_MODEL_OPTIONS
+#define OSGEARTH_DRIVER_FEATURE_SUB_MODEL_OPTIONS 1
 
 #include <osgEarth/Common>
 #include <osgEarthFeatures/FeatureModelSource>
@@ -27,7 +27,7 @@ namespace osgEarth { namespace Drivers
     using namespace osgEarth;
     using namespace osgEarth::Features;
 
-    class FeatureLabelModelOptions : public FeatureModelSourceOptions // NO EXPORT; header only
+    class FeatureSubModelOptions : public FeatureModelSourceOptions // NO EXPORT; header only
     {
     public:
         optional<std::string>& url() { return _url; }
@@ -36,14 +36,11 @@ namespace osgEarth { namespace Drivers
         optional<double>& heightOffset() { return _heightOffset; }
         const optional<double>& heightOffset() const { return _heightOffset; }
 
-        optional<bool>& hideClutter() { return _hideClutter; }
-        const optional<bool>& hideClutter() const { return _hideClutter; }
-
     public:
-        FeatureLabelModelOptions( const ConfigOptions& opt =ConfigOptions() ) : FeatureModelSourceOptions( opt ),
-            _heightOffset( 0.0 )
+        FeatureSubModelOptions( const ConfigOptions& options =ConfigOptions() ) :
+            FeatureModelSourceOptions( options )
         {
-            setDriver( "feature_label" );
+            setDriver( "feature_geom" );
             fromConfig( _conf );
         }
 
@@ -52,12 +49,11 @@ namespace osgEarth { namespace Drivers
             Config conf = FeatureModelSourceOptions::getConfig();
             conf.updateIfSet( "url", _url );
             conf.updateIfSet( "height_offset", _heightOffset );
-            conf.updateIfSet( "hide_clutter", _hideClutter );
             return conf;
         }
 
     protected:
-        void mergeConfig( const Config& conf ) {
+        virtual void mergeConfig( const Config& conf ) {
             FeatureModelSourceOptions::mergeConfig( conf );
             fromConfig( conf );
         }
@@ -66,15 +62,13 @@ namespace osgEarth { namespace Drivers
         void fromConfig( const Config& conf ) {
             conf.getIfSet( "url", _url );
             conf.getIfSet( "height_offset", _heightOffset );
-            conf.getIfSet( "hide_clutter", _hideClutter );
         }
 
         optional<std::string> _url;
         optional<double> _heightOffset;
-        optional<bool> _hideClutter;
     };
 
 } } // namespace osgEarth::Drivers
 
-#endif // OSGEARTH_DRIVER_FEATURE_GEOM_MODEL_OPTIONS
+#endif // OSGEARTH_DRIVER_FEATURE_SUB_MODEL_OPTIONS
 
