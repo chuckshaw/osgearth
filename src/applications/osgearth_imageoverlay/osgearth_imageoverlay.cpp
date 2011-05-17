@@ -34,7 +34,9 @@
 #include <osgEarth/Version>
 
 #include <osgEarthUtil/ImageOverlay>
+#if OSG_MIN_VERSION_REQUIRED(2,9,6)
 #include <osgEarthUtil/ImageOverlayEditor>
+#endif
 
 using namespace osgEarth;
 using namespace osgEarth::Util;
@@ -42,7 +44,7 @@ using namespace osgEarth::Util::Controls;
 
 static Grid* s_layerBox = NULL;
 static Grid* s_imageBox = NULL;
-static ImageOverlayEditor* s_editor = NULL;
+static Grid* s_coordInfo = NULL;
 
 osg::Node*
 createControlPanel( osgViewer::View* view )
@@ -69,8 +71,19 @@ createControlPanel( osgViewer::View* view )
     s_imageBox->setAbsorbEvents( true );
     s_imageBox->setVertAlign( Control::ALIGN_BOTTOM );
 
+    s_coordInfo = new Grid();
+    s_coordInfo->setHorizAlign(Control::ALIGN_LEFT);
+    s_coordInfo->setBackColor(0,0,0,0.5);
+    s_coordInfo->setMargin( 10 );
+    s_coordInfo->setPadding( 10 );
+    s_coordInfo->setSpacing( 10 );
+    s_coordInfo->setChildVertAlign( Control::ALIGN_CENTER );
+    s_coordInfo->setAbsorbEvents( true );
+    s_coordInfo->setVertAlign( Control::ALIGN_TOP );
+
     canvas->addControl( s_layerBox );
     canvas->addControl( s_imageBox );
+    canvas->addControl( s_coordInfo );
 
     return canvas;
 }
@@ -106,33 +119,35 @@ struct EnabledHandler : public ControlEventHandler
     ImageOverlay* _overlay;
 };
 
+
+
 struct EditHandler : public ControlEventHandler
 {
-    EditHandler( ImageOverlay* overlay, osgViewer::Viewer* viewer, osg::Group* editGroup) :
+    EditHandler( ImageOverlay* overlay, osgViewer::Viewer* viewer, osg::Node* editor) :
       _overlay(overlay),
       _viewer(viewer),
-      _editGroup(editGroup){ }
+      _editor(editor){ }
 
-    void onClick( Control* control, int mouseButtonMask ) {
-        if (!s_editor)
+    void onClick( Control* control, int mouseButtonMask ) {        
+#if OSG_MIN_VERSION_REQUIRED(2,9,6)
+        if (_editor->getNodeMask() != ~0)
         {
             static_cast<LabelControl*>(control)->setText( "Finish" );
-            s_editor = new ImageOverlayEditor(_overlay, _editGroup );                    
-            _viewer->addEventHandler( s_editor );            
+            _editor->setNodeMask(~0);
         }
         else
         {
             static_cast<LabelControl*>(control)->setText( "Edit" );
-            if (s_editor)
-            {
-                removeEventHandler(_viewer, s_editor);
-                s_editor = 0;
-            }
+            _editor->setNodeMask(0);
         }
+
+#else
+        OE_NOTICE << "Use OSG 2.9.6 or greater to use editing" << std::endl;
+#endif
     }
     ImageOverlay* _overlay;
     osgViewer::Viewer* _viewer;
-    osg::Group* _editGroup;
+    osg::Node* _editor;
 };
 
 struct ChangeImageHandler : public ControlEventHandler
@@ -160,6 +175,81 @@ void addImage(osg::Image* image, ImageOverlay* overlay, ImageControl* preview)
     imageCon->setVertAlign( Control::ALIGN_CENTER );
     s_imageBox->setControl( 0, row++, imageCon );     
     imageCon->addEventHandler(new ChangeImageHandler(image, overlay, preview));
+}
+
+struct UpdateLabelCallback : public ImageOverlay::ImageOverlayCallback
+{
+    UpdateLabelCallback(LabelControl* label, ImageOverlay* overlay, ImageOverlay::ControlPoint controlPoint):
+      _label(label),
+      _overlay(overlay),
+      _controlPoint(controlPoint)
+    {
+
+    }
+
+    virtual void onOverlayChanged()
+    {
+        osg::Vec2d location = _overlay->getControlPoint( _controlPoint );
+        std::stringstream ss;
+        ss << location.y() << ", " << location.x();
+        _label->setText( ss.str() );
+    }
+    
+
+    osg::ref_ptr< LabelControl > _label;
+    osg::ref_ptr< ImageOverlay > _overlay;
+    ImageOverlay::ControlPoint _controlPoint;
+};
+
+void addCoordInfo(ImageOverlay* overlay, ImageOverlay::ControlPoint point)
+{
+
+    static unsigned int row = 0;
+    Grid *grid = new Grid();
+    //grid->setBackColor(0,0,0,0.5);
+    grid->setMargin( 10 );
+    grid->setPadding( 10 );
+    grid->setSpacing( 10 );
+    grid->setChildVertAlign( Control::ALIGN_CENTER );
+    grid->setAbsorbEvents( true );
+    grid->setVertAlign( Control::ALIGN_BOTTOM );
+
+    std::string name;
+    switch (point)
+    {
+    case ImageOverlay::CONTROLPOINT_CENTER:
+        name = "Center:";
+        break;
+    case ImageOverlay::CONTROLPOINT_LOWER_LEFT:
+        name = "Lower Left:";
+        break;
+    case ImageOverlay::CONTROLPOINT_LOWER_RIGHT:
+        name = "Lower Right:";
+        break;
+    case ImageOverlay::CONTROLPOINT_UPPER_LEFT:
+        name = "Upper Left:";
+        break;
+    case ImageOverlay::CONTROLPOINT_UPPER_RIGHT:
+        name = "Upper Right:";
+        break;
+    }
+
+    LabelControl* lbl = new LabelControl( name );      
+    lbl->setVertAlign( Control::ALIGN_CENTER );
+    grid->setControl(0, 0, lbl);
+
+
+
+    LabelControl* coords = new LabelControl(  );      
+    osg::Vec2d location = overlay->getControlPoint( point );
+    std::stringstream ss;
+    ss << location.y() << ", " << location.x();
+    coords->setText( ss.str() );
+    coords->setVertAlign( Control::ALIGN_CENTER );
+    grid->setControl(1, 0, coords);
+    overlay->addCallback(new UpdateLabelCallback(coords, overlay, point));
+
+    s_coordInfo->setControl( 0, row++, grid );  
 }
 
 
@@ -224,9 +314,21 @@ main(int argc, char** argv)
         modelLayer->setOverlay( true );
         mapNode->getMap()->addModelLayer( modelLayer );
 
-        //Create a group for the editor to stick it's controls
-        osg::Group* editorGroup = new osg::Group;
-        root->addChild( editorGroup );      
+        //Create a new ImageOverlayEditor and set it's node mask to 0 to hide it initially
+#if OSG_MIN_VERSION_REQUIRED(2,9,6)
+        osg::Node* editor = new ImageOverlayEditor( overlay, mapNode );
+#else
+        //Just make an empty group for pre-2.9.6
+        osg::Node* editor = new osg::Group;
+#endif
+        editor->setNodeMask( 0 );
+        root->addChild( editor );      
+
+        addCoordInfo(overlay, ImageOverlay::CONTROLPOINT_CENTER);
+        addCoordInfo(overlay, ImageOverlay::CONTROLPOINT_UPPER_LEFT);
+        addCoordInfo(overlay, ImageOverlay::CONTROLPOINT_UPPER_RIGHT);
+        addCoordInfo(overlay, ImageOverlay::CONTROLPOINT_LOWER_LEFT);
+        addCoordInfo(overlay, ImageOverlay::CONTROLPOINT_LOWER_RIGHT);
 
         // Add an image preview
         ImageControl* imageCon = new ImageControl( image );
@@ -257,7 +359,7 @@ main(int argc, char** argv)
         // Add a text label:
         LabelControl* edit = new LabelControl( "Edit" );        
         edit->setVertAlign( Control::ALIGN_CENTER );
-        edit->addEventHandler(new EditHandler(overlay, &viewer, editorGroup));
+        edit->addEventHandler(new EditHandler(overlay, &viewer, editor));
         s_layerBox->setControl(4, 0, edit );
 
 
