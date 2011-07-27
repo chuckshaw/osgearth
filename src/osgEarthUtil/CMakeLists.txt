@@ -8,7 +8,8 @@ SET(LIB_NAME osgEarthUtil)
 
 SET(HEADER_PATH ${OSGEARTH_SOURCE_DIR}/include/${LIB_NAME})
 
-SET(LIB_PUBLIC_HEADERS    
+SET(LIB_PUBLIC_HEADERS  
+    Annotation  
     AutoClipPlaneHandler
     Common
     Controls
@@ -31,6 +32,7 @@ SET(LIB_PUBLIC_HEADERS
 )
 
 SET(LIB_COMMON_FILES
+    Annotation.cpp
     AutoClipPlaneHandler.cpp
     ClampCallback.cpp
     Controls.cpp

@@ -17,34 +17,35 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
-#ifndef OSGEARTHSYMBOLOGY_LINE_SYMBOL_H
-#define OSGEARTHSYMBOLOGY_LINE_SYMBOL_H 1
+#ifndef OSGEARTHFEATURES_FEATURE_NODE_H
+#define OSGEARTHFEATURES_FEATURE_NODE_H 1
 
-#include <osgEarth/Common>
-#include <osgEarth/GeoMath>
-#include <osgEarthSymbology/Common>
-#include <osgEarthSymbology/Symbol>
-#include <osg/Referenced>
-#include <vector>
+#include <osgEarthFeatures/Common>
+#include <osgEarthFeatures/Feature>
+#include <osgEarth/DrapeableNode>
 
-namespace osgEarth { namespace Symbology
+namespace osgEarth { namespace Features
 {
-    class OSGEARTHSYMBOLOGY_EXPORT LineSymbol : public Symbol
+    using namespace osgEarth;
+
+    /**
+     * A node that renders a single feature. This convenience node assumes
+     * that the geometry in the Feature is in the same SRS as the Map in the
+     * MapNode.
+     */
+    class OSGEARTHFEATURES_EXPORT FeatureNode : public DrapeableNode
     {
     public:
-        LineSymbol(const Config& conf =Config());
+        FeatureNode( MapNode* mapNode, Feature* feature, bool draped =true );
 
-        optional<Stroke>& stroke() { return _stroke; }
-        const optional<Stroke>& stroke() const { return _stroke; }
+        void setFeature( Feature* feature );
 
-    public:
-        virtual Config getConfig() const;
-        virtual void mergeConfig( const Config& conf );
+        void init();
 
     protected:
-        optional<Stroke> _stroke;
+        osg::ref_ptr<Feature> _feature;
     };
 
-} } // namespace osgEarth::Symbology
+} } // namespace osgEarth::Features
 
-#endif // OSGEARTHSYMBOLOGY_LINE_SYMBOL_H
+#endif // OSGEARTHFEATURES_FEATURE_NODE_H
