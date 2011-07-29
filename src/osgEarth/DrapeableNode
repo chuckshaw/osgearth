@@ -25,34 +25,38 @@
 
 namespace osgEarth
 {
-    /** 
-     * Base class for a node that can be optionally "draped" on the MapNode terrain.
+    /**
+     * Base class for a node that can be "draped" on the MapNode terrain
+     * using the overlay decorator.
      */
     class OSGEARTH_EXPORT DrapeableNode : public osg::Group
     {
     public:
-        /**
-         * Sets the node that comprises the content of this drapeable.
-         */
-        void setNode( osg::Node* node );
+        DrapeableNode( MapNode* mapNode =0L, bool draped =true );
 
         /**
-         * Sets whether to drape the node content on the mapnode terrain.
+         * The node to drape (or not) on the MapNode terrain.
+         */
+        void setNode( osg::Node* node );
+        osg::Node* getNode() const { return _node.get(); }
+
+        /**
+         * Whether to drape the node content on the mapnode terrain.
          */
         void setDraped( bool value );
         bool getDraped() const { return _draped; }
 
     public:
-        virtual void traverse(osg::NodeVisitor& nv );
+        virtual void traverse( osg::NodeVisitor& nv );
 
     protected:
-        DrapeableNode( MapNode* mapNode, bool draped =false );
         osg::observer_ptr<MapNode> _mapNode;
 
     private:
-        bool _draped;
-        osg::ref_ptr<osg::Node> _node;
+        bool                       _draped;
+        osg::ref_ptr<osg::Node>    _node;
     };
-};
+
+} // namespace osgEarth
 
 #endif // OSGEARTH_DRAPEABLE_NODE_H

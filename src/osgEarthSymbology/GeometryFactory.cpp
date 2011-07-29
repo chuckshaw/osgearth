@@ -35,12 +35,6 @@ GeometryFactory::createCircle(const osg::Vec3d& center,
                               const Linear&     radius,
                               unsigned          numSegments)
 {
-    if ( !_srs.valid() )
-    {
-        OE_WARN << LC << "ILLEGAL: Invalid SRS, cannot create geometry" << std::endl;
-        return 0L;
-    }
-
     Polygon* geom = new Polygon();
 
     if ( numSegments == 0 )
@@ -53,7 +47,7 @@ GeometryFactory::createCircle(const osg::Vec3d& center,
     
     double segAngle = (2.0*osg::PI)/(double)numSegments;
 
-    if ( _srs->isGeographic() )
+    if ( _srs.valid() && _srs->isGeographic() )
     {
         double earthRadius = _srs->getEllipsoid()->getRadiusEquator();
         double lat = osg::DegreesToRadians(center.y());
@@ -87,18 +81,67 @@ GeometryFactory::createCircle(const osg::Vec3d& center,
 }
 
 Geometry*
+GeometryFactory::createArc(const osg::Vec3d& center,
+                           const Linear&     radius,
+                           const Angular&    start,
+                           const Angular&    end,
+                           unsigned          numSegments)
+{
+    Geometry* geom = new LineString();
+
+    if ( numSegments == 0 )
+    {
+        // automatically calculate
+        double segLen = radius.as(Units::METERS) / 8.0;
+        double circumference = 2*osg::PI*radius.as(Units::METERS);
+        numSegments = (unsigned)::ceil(circumference / segLen);
+    }
+
+    double startRad = std::min( start.as(Units::RADIANS), end.as(Units::RADIANS) );
+    double endRad   = std::max( start.as(Units::RADIANS), end.as(Units::RADIANS) );
+    double span     = endRad - startRad;    
+    double step     = span/(double)numSegments;
+
+    if ( _srs.valid() && _srs->isGeographic() )
+    {
+        double earthRadius = _srs->getEllipsoid()->getRadiusEquator();
+        double lat = osg::DegreesToRadians(center.y());
+        double lon = osg::DegreesToRadians(center.x());
+        double rM  = radius.as(Units::METERS);
+
+        for( unsigned i=0; i<=numSegments; ++i )
+        {
+            double angle = startRad + step*(double)i;
+            double clat, clon;
+            GeoMath::destination( lat, lon, angle, rM, clat, clon, earthRadius );
+            geom->push_back( osg::Vec3d(osg::RadiansToDegrees(clon), osg::RadiansToDegrees(clat), center.z()) );
+        }
+    }
+
+    else
+    {
+        double rM = radius.as(Units::METERS);
+
+        for( unsigned i=0; i<=numSegments; ++i )
+        {
+            double angle = startRad + step*(double)i;
+            double x, y;
+            x = center.x() + sin(angle)*rM;
+            y = center.y() + cos(angle)*rM;
+            geom->push_back( osg::Vec3d(x, y, center.z()) );
+        }
+    }
+
+    return geom;
+}
+
+Geometry*
 GeometryFactory::createEllipse(const osg::Vec3d& center,
                                const Linear&     radiusMajor,
                                const Linear&     radiusMinor,
                                const Angular&    rotationAngle,
                                unsigned          numSegments)
 {
-    if ( !_srs.valid() )
-    {
-        OE_WARN << LC << "ILLEGAL: Invalid SRS, cannot create geometry" << std::endl;
-        return 0L;
-    }
-
     Polygon* geom = new Polygon();
 
     if ( numSegments == 0 )
@@ -112,7 +155,7 @@ GeometryFactory::createEllipse(const osg::Vec3d& center,
     
     double segAngle = 2.0*osg::PI/(double)numSegments;
 
-    if ( _srs->isGeographic() )
+    if ( _srs.valid() && _srs->isGeographic() )
     {
         double earthRadius = _srs->getEllipsoid()->getRadiusEquator();
         double lat = osg::DegreesToRadians(center.y());

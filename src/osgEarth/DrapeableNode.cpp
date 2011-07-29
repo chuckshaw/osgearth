@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
- * Copyright 2008-2011 Pelican Mapping
+ * Copyright 2008-2010 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -18,48 +18,14 @@
  */
 
 #include <osgEarth/DrapeableNode>
+#include <osgEarth/Utils>
 
 using namespace osgEarth;
 
-//------------------------------------------------------------------------
-
-namespace 
-{
-    struct CullByFrameNumber : public osg::NodeCallback
-    {
-        unsigned _frame;
-        CullByFrameNumber() : _frame(0) { }
-        void operator()( osg::Node* node, osg::NodeVisitor* nv )
-        {
-            if ( nv->getFrameStamp()->getFrameNumber() - _frame <= 1 )
-                traverse(node, nv);
-        }
-    };
-}
-
-//------------------------------------------------------------------------
-
-DrapeableNode::DrapeableNode( MapNode* mapNode, bool draped ) :
-_mapNode( mapNode ),
-_draped ( draped )
+DrapeableNode::DrapeableNode( MapNode* mapNode, bool draped )
+: _mapNode( mapNode ), _draped( draped )
 {
     //nop
-}
-
-void
-DrapeableNode::setDraped( bool value )
-{
-    if ( _draped != value )
-    {
-        osg::ref_ptr<osg::Node> save = _node.get();
-        if ( save.valid() )
-            setNode( 0L );
-
-        _draped = value;
-
-        if ( save.valid() )
-            setNode( save.get() );
-    }
 }
 
 void
@@ -85,7 +51,7 @@ DrapeableNode::setNode( osg::Node* node )
     {
         if ( _draped && _mapNode.valid() )
         {
-            _node->setCullCallback( new CullByFrameNumber() );
+            _node->setCullCallback( new CullNodeByFrameNumber() );
             _mapNode->getOverlayGroup()->addChild( _node.get() );
             _mapNode->updateOverlayGraph();
         }
@@ -96,12 +62,30 @@ DrapeableNode::setNode( osg::Node* node )
     }
 }
 
+
+void
+DrapeableNode::setDraped( bool value )
+{
+    if ( _draped != value )
+    {
+        osg::ref_ptr<osg::Node> save = _node.get();
+        if ( save.valid() )
+            setNode( 0L );
+
+        _draped = value;
+
+        if ( save.valid() )
+            setNode( save.get() );
+    }
+}
+
+
 void
 DrapeableNode::traverse( osg::NodeVisitor& nv )
 {
-    if ( _draped && nv.getVisitorType() == osg::NodeVisitor::CULL_VISITOR && _node.valid() )
+    if ( _draped && nv.getVisitorType() == osg::NodeVisitor::CULL_VISITOR && _node.valid() && _mapNode.valid() )
     {
-        CullByFrameNumber* cb = static_cast<CullByFrameNumber*>(_node->getCullCallback());
+        CullNodeByFrameNumber* cb = static_cast<CullNodeByFrameNumber*>(_node->getCullCallback());
         cb->_frame = nv.getFrameStamp()->getFrameNumber();
     }
     osg::Group::traverse( nv );

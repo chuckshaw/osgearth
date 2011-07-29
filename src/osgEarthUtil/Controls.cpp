@@ -437,12 +437,13 @@ Control::handle( const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa, 
             }
         }
         else 
-        {
+        {            
             if ( ea.getEventType() == osgGA::GUIEventAdapter::RELEASE )
             {
                 for( ControlEventHandlerList::const_iterator i = _eventHandlers.begin(); i != _eventHandlers.end(); ++i )
                 {
-                    i->get()->onClick( this, ea.getButtonMask() );
+                    osg::Vec2f relXY( ea.getX() - _renderPos.x(), cx._vp->height() - ea.getY() - _renderPos.y() );
+                    i->get()->onClick( this, relXY, ea.getButtonMask() );
                 }
             }
         }
@@ -548,24 +549,22 @@ LabelControl::calcSize(const ControlContext& cx, osg::Vec2f& out_size)
             osg::Matrix m = t->getATMatrix( cx._viewContextID );
             _bmin = osg::Vec3( bbox.xMin(), bbox.yMin(), bbox.zMin() ) * m;
             _bmax = osg::Vec3( bbox.xMax(), bbox.yMax(), bbox.zMax() ) * m;
-            //_renderSize.set( _bmax.x() - _bmin.x(), _bmax.y() - _bmin.y() );
         }
         else
         {
             _bmin = osg::Vec3( bbox.xMin(), bbox.yMin(), bbox.zMin() );
             _bmax = osg::Vec3( bbox.xMax(), bbox.yMax(), bbox.zMax() );
-            //_renderSize.set( bbox.xMax()-bbox.xMin(), bbox.yMax()-bbox.yMin() );
         }
 
         _renderSize.set(
-            padding().left() + (_bmax.x() - _bmin.x()) + padding().right(),
-            padding().left() + (_bmax.y() - _bmin.y()) + padding().right() );
+            (_bmax.x() - _bmin.x()) + padding().x(),
+            (_bmax.y() - _bmin.y()) + padding().y() );
 
         _drawable = t;
 
         out_size.set(
-            margin().left() + margin().right() + _renderSize.x(),
-            margin().top() + margin().bottom() + _renderSize.y() );
+            margin().x() + _renderSize.x(),
+            margin().y() + _renderSize.y() );
     }
     else
     {
@@ -740,6 +739,8 @@ ImageControl::draw( const ControlContext& cx, DrawableList& out )
 #endif
 
         g->setTexCoordArray( 0, t );
+
+        tex->setResizeNonPowerOfTwoHint(false);
 
         tex->setFilter( osg::Texture::MIN_FILTER, osg::Texture::NEAREST );
         tex->setFilter( osg::Texture::MAG_FILTER, osg::Texture::LINEAR );
@@ -1011,7 +1012,11 @@ Frame::draw( const ControlContext& cx, DrawableList& out )
         geom->push_back( osg::Vec3d( _renderSize.x()-1, _renderSize.y()-1, 0 ) );
         geom->push_back( osg::Vec3d( 0, _renderSize.y()-1, 0 ) );
 
-        GeometryRasterizer ras( (int)_renderSize.x(), (int)_renderSize.y() );
+        Style style;
+        LineSymbol* line = style.getOrCreate<LineSymbol>();
+        line->stroke()->color() = Color::White;
+        line->stroke()->width() = 2.5f;
+        GeometryRasterizer ras( (int)_renderSize.x(), (int)_renderSize.y(), style );
         ras.draw( geom.get() );
 
         osg::Image* image = ras.finalize();

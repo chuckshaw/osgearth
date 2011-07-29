@@ -89,30 +89,81 @@ namespace osgEarth { namespace Util { namespace Annotation
         void init();
     };
 
+    /**
+     * Simple node that renders a Geometry into a scene graph node. The coordinates
+     * of the geometry are explicit; there is no association with spatial reference
+     * or a map. You can use this object to create a geometry for use in a local
+     * tangent plane coordinate system.
+     */
+    class OSGEARTHUTIL_EXPORT GeometryNode : public DrapeableNode
+    {
+    public:
+        GeometryNode( Geometry* geom, const Style& style );
+
+        GeometryNode( MapNode* mapNode, Geometry* geom, const Style& style, bool draped =true );
+
+        /**
+         * Gets or creates a parent node for the internal draped node. Typically you
+         * would use this to install a Transform node atop the draped node.
+         */
+        template<typename T>
+        T* getOrCreateParent()
+        {
+            if ( _parent.valid() )
+            {
+                return static_cast<T*>( _parent.get() );
+            }
+            else
+            {
+                T* p = new T();
+                _parent = p;
+                if ( getNode() )
+                {
+                    p->addChild( getNode() );
+                    setNode( _parent.get() );
+                }
+                return p;
+            }
+        }
+
+    protected:
+        void init();
+
+        osg::ref_ptr<Geometry>   _geom;
+        Style                    _style;
+        osg::ref_ptr<osg::Group> _parent;
+    };
+
+    /** 
+     * Renders a circle that can drape on a MapNode terrain.    
+     */
     class OSGEARTHUTIL_EXPORT CircleNode : public FeatureNode
     {
     public:
         CircleNode( 
-            MapNode*          mapNode,
-            const osg::Vec3d& center,
-            const Linear&     radius,
-            const Style&      style,
-            bool              draped =true,
-            unsigned          numSegments =0);
+            MapNode*                mapNode,
+            const osg::Vec3d&       center,
+            const Linear&           radius,
+            const Style&            style,
+            bool                    draped      =true,
+            unsigned                numSegments =0 );
     };
 
+    /** 
+     * Renders a circle that can drape on a MapNode terrain.    
+     */
     class OSGEARTHUTIL_EXPORT EllipseNode : public FeatureNode
     {
     public:
         EllipseNode( 
-            MapNode*          mapNode,
-            const osg::Vec3d& center,
-            const Linear&     radiusMajor,
-            const Linear&     radiusMinor,
-            const Angular&    rotationAngle,
-            const Style&      style,
-            bool              draped =true,
-            unsigned          numSegments =0);
+            MapNode*                mapNode,
+            const osg::Vec3d&       center,
+            const Linear&           radiusMajor,
+            const Linear&           radiusMinor,
+            const Angular&          rotationAngle,
+            const Style&            style,
+            bool                    draped      =true,
+            unsigned                numSegments =0 );
     };
 
 } } } // namespace osgEarth::Util::Annotation
