@@ -31,7 +31,7 @@ LatLongFormatter::LatLongFormatter(const AngularFormat& defaultFormat,
                                    unsigned             options ) :
 _defaultFormat( defaultFormat ),
 _options      ( options ),
-_prec         ( 4 )
+_prec         ( 5 )
 {
     if ( _defaultFormat == FORMAT_DEFAULT )
     {
@@ -40,7 +40,7 @@ _prec         ( 4 )
 }
 
 std::string
-LatLongFormatter::format( const Angular& angle, const AngularFormat& format )
+LatLongFormatter::format( const Angular& angle, int precision, const AngularFormat& format )
 {
     std::stringstream buf;
     std::string result;
@@ -50,15 +50,18 @@ LatLongFormatter::format( const Angular& angle, const AngularFormat& format )
         format == FORMAT_DEFAULT ? _defaultFormat :
         format;
 
-    if ( _prec > 0 )
-        buf << std::setprecision(_prec);
+    if ( precision < 0 )
+        precision = _prec;
+
+    if ( precision > 0 )
+        buf << std::setprecision(precision);
 
     switch( f )
     {
     case FORMAT_DECIMAL_DEGREES:
         {
             if ( _options & USE_SYMBOLS )
-                buf << angle.as(Units::DEGREES) << "°";
+                buf << angle.as(Units::DEGREES) << "\xb0";
             else
                 buf << angle.as(Units::DEGREES);
         }
