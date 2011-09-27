@@ -16,16 +16,22 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
-#ifndef OSGEARTH_DRIVER_KML_KML_LABELSTYLE
-#define OSGEARTH_DRIVER_KML_KML_LABELSTYLE 1
-
 #include "KML_Object"
 
-using namespace osgEarth;
-
-struct KML_LabelStyle : public KML_Object
+void
+KML_Object::build( const Config& conf, KMLContext& cx, osg::Node* working )
 {
-    virtual void scan( const Config& conf, Style& style );
-};
+    //todo - read ID
+}
 
-#endif // OSGEARTH_DRIVER_KML_KML_LABELSTYLE
+AnnotationData*
+KML_Object::getOrCreateAnnotationData( osg::Node* node )
+{
+    AnnotationData* data = dynamic_cast<AnnotationData*>( node->getUserData() );
+    if ( !data ) {
+        data = new AnnotationData();
+        node->setUserData( data );
+    }
+    return data;
+}
+

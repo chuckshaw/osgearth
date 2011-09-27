@@ -11,6 +11,12 @@ ENDIF(WIN32)
     
 SET(TARGET_COMMON_LIBRARIES ${TARGET_COMMON_LIBRARIES} osgEarthFeatures osgEarthSymbology osgEarthUtil)
 
+IF( MINIZIP_FOUND )
+    SET(TARGET_LIBRARIES_VARS ZLIB_LIBRARY MINIZIP_LIBRARY )
+    INCLUDE_DIRECTORIES( ${ZLIB_INCLUDE_DIR} ${MINIZIP_INCLUDE_DIR} )
+    ADD_DEFINITIONS(-DOSGEARTH_HAVE_ZLIB -DOSGEARTH_HAVE_MINIZIP )
+ENDIF( MINIZIP_FOUND )
+
 SET(TARGET_H
     KML
     KMLOptions
@@ -30,6 +36,7 @@ SET(TARGET_H
     KML_Model
     KML_MultiGeometry
     KML_NetworkLinkControl
+    KML_Object
     KML_Overlay
     KML_PhotoOverlay
     KML_Point
@@ -61,6 +68,7 @@ SET(TARGET_SRC
     KML_MultiGeometry.cpp
     KML_NetworkLink.cpp
     KML_NetworkLinkControl.cpp
+    KML_Object.cpp
     KML_Overlay.cpp
     KML_PhotoOverlay.cpp
     KML_Placemark.cpp

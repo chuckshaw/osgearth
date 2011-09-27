@@ -32,6 +32,7 @@ _draped ( draped )
     // to "track" the traversal state of the DrapeableNode itself.
     _nodeContainer = new osg::Group();
     _nodeContainer->setCullCallback( new CullNodeByFrameNumber() );
+    _nodeContainer->setStateSet( this->getOrCreateStateSet() ); // share the stateset
     _dirty = false;
 }
 
@@ -57,7 +58,7 @@ DrapeableNode::setNode( osg::Node* node )
 {
     _newNode = node;
     _dirty = true;
-    this->setNumChildrenRequiringUpdateTraversal( 1 );
+    ADJUST_UPDATE_TRAV_COUNT( this, 1 );
 }
 
 void
@@ -65,7 +66,7 @@ DrapeableNode::setDraped( bool draped )
 {
     _newDraped = draped;
     _dirty = true;
-    this->setNumChildrenRequiringUpdateTraversal( 1 );
+    ADJUST_UPDATE_TRAV_COUNT( this, 1 );
 }
 
 void
@@ -132,7 +133,7 @@ DrapeableNode::traverse( osg::NodeVisitor& nv )
     {
         applyChanges();
         _dirty = false;
-        this->setNumChildrenRequiringUpdateTraversal( 0 );
+        ADJUST_UPDATE_TRAV_COUNT( this, -1 );
     }
 
     osg::Group::traverse( nv );

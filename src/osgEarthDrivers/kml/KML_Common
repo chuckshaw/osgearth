@@ -24,6 +24,8 @@
 #include <osgEarth/MapNode>
 #include <osgEarthSymbology/Style>
 
+#define LC "[KML] "
+
 using namespace osgEarth;
 using namespace osgEarth::Symbology;
 
@@ -58,15 +60,10 @@ struct KMLContext
 {
     MapNode*                              _mapNode;
     osg::ref_ptr<StyleSheet>              _sheet;
+    Style                                 _activeStyle;
     std::stack<osg::ref_ptr<osg::Group> > _groupStack;
 };
 
-struct KML_Object
-{
-    virtual void scan( const Config& conf, KMLContext& cx ) { }
-    virtual void scan2( const Config& conf, KMLContext& cx ) { }
-    virtual void build( const Config& conf, KMLContext& cx ) { }
-};
 
 #endif // OSGEARTH_DRIVER_KML_READER
 
