@@ -22,142 +22,18 @@
 #include <osgDB/FileCache>
 #include <osgDB/Registry>
 #include <osgDB/FileUtils>
+#include <osgDB/Archive>
+#include <osgEarth/Registry>
+#include <osgEarth/ThreadingUtils>
 
 #include "KMLOptions"
 #include "KMLReader"
+#include "KMZArchive"
 
 #define LC "[ReaderWriterKML] "
 
+using namespace osgEarth;
 using namespace osgEarth::Drivers;
-
-#ifdef OSGEARTH_HAVE_MINIZIP
-
-#include "unzip.h"
-
-namespace
-{
-    URI downloadKMZ( const URI& uri )
-    {
-        // get a handle on the file cache. This is a temporary setup just to get things
-        // working.
-        static Threading::Mutex s_fcMutex;
-        static URIContext s_cache;
-        if ( s_cache.empty() )
-        {
-            Threading::ScopedMutexLock exclusiveLock(s_fcMutex);
-            if ( s_cache.empty() )
-            {
-                const char* osgCacheDir = ::getenv("OSG_FILE_CACHE");
-                if ( osgCacheDir )
-                    s_cache = std::string(osgCacheDir) + "/";
-                else
-                    s_cache = "osgearth_kmz_cache/";
-            }
-        }
-
-        URI cachedFile( osgDB::getSimpleFileName(uri.full()), s_cache);
-
-        if ( !osgDB::fileExists(cachedFile.full()) )
-        {
-            osgDB::makeDirectoryForFile(cachedFile.full());
-            HTTPClient::download( uri.full(), cachedFile.full() );
-        }
-
-        if ( osgDB::fileExists(cachedFile.full()) )
-            return cachedFile;
-
-        return URI();
-    }
-
-    /**
-     * Extracts a single file from a zip archive
-     * (http://bytes.com/topic/c/answers/764381-reading-contents-zip-files)
-     */
-    std::string readFromZip( const std::string& url, const std::string& fileInZip )
-    {
-        URI fileURI(url);
-        if ( osgDB::containsServerAddress(url) )
-        {
-            fileURI = downloadKMZ( url );
-        }
-
-        if ( fileURI.empty() ) {
-            OE_WARN << LC << "KMZ download failed" << std::endl;
-            return "";
-        }
-
-        std::string zipFile = fileURI.full();
-
-        int err = UNZ_OK;
-        unsigned size_buf = 5242880;
-        void* buf;
-        std::string sout;
-        char filename_inzip[1024];
-        unz_file_info file_info;
-
-        unzFile uf = unzOpen( zipFile.c_str() );
-        if ( uf == 0L )
-        {
-            OE_WARN << LC << "Failed to open zipped file" << std::endl;
-            return sout;
-        }
-
-        if ( unzLocateFile( uf, fileInZip.c_str(), 0 ) )
-        {
-            OE_WARN << LC << "Failed to locate '" << fileInZip << "' in '" << zipFile << "'" << std::endl;
-            return sout;
-        }
-
-        if ( unzGetCurrentFileInfo( uf, &file_info, filename_inzip, sizeof(filename_inzip), 0L, 0, 0L, 0) )
-        {
-            OE_WARN << LC << "Error with zipfile " << zipFile << std::endl;
-            return sout;
-        }
-
-        buf = (void*)new char[size_buf];
-        if ( buf == 0L )
-        {
-            OE_WARN << LC << "Out of memory" << std::endl;
-            return sout;
-        }
-
-        err = unzOpenCurrentFilePassword( uf, 0L );
-        if ( err != UNZ_OK )
-        {
-            OE_WARN << LC << "unzOpenCurrentFilePassword failed" << std::endl;
-            return sout;
-        }
-
-        do
-        {
-            err = unzReadCurrentFile( uf, buf, size_buf );
-            if ( err < 0 )
-            {
-                OE_WARN << LC << "Error in unzReadCurrentFile" << std::endl;
-                sout = "";
-                break;
-            }
-            if ( err > 0 )
-            {
-                for( unsigned i=0; i<err; ++i )
-                {
-                    sout.push_back( *(((char*)buf)+i) );
-                }
-            }
-        }
-        while( err > 0 );
-
-        err = unzCloseCurrentFile( uf );
-        if ( err != UNZ_OK )
-        {
-            //ignore it...
-        }
-
-        delete [] buf;
-        return sout;
-    }
-}
-#endif // OSGEARTH_HAVE_MINIZIP
 
 //---------------------------------------------------------------------------
 
@@ -166,47 +42,39 @@ struct ReaderWriterKML : public osgDB::ReaderWriter
     ReaderWriterKML()
     {
         supportsExtension( "kml", "KML" );
+
+#ifdef SUPPORT_KMZ
         supportsExtension( "kmz", "KMZ" );
+#endif // SUPPORT_KMZ
     }
 
-    ReadResult readObject(const std::string& uri, const Options* options) const
+    ReadResult readObject(const std::string& url, const Options* options) const
     {
-        return readNode( uri, options );
+        return readNode( url, options );
     }
 
-    ReadResult readNode(const std::string& uri, const Options* options) const
+    ReadResult readObject(std::istream& in, const Options* options ) const
     {
-        std::string ext = osgDB::getLowerCaseFileExtension(uri);
+        return readNode(in, options);
+    }
+
+    ReadResult readNode(const std::string& url, const Options* options) const
+    {
+        std::string ext = osgDB::getLowerCaseFileExtension(url);
         if ( !acceptsExtension(ext) )
             return ReadResult::FILE_NOT_HANDLED;
 
         if ( ext == "kmz" )
         {
-#ifdef OSGEARTH_HAVE_MINIZIP
-            std::string data = readFromZip( uri, "doc.kml" );
-            if ( !data.empty() )
-            {
-                std::stringstream buf(data);
-                return readNode( buf, options );
-            }
-            else
-            {
-                OE_WARN << LC << "Failed to process KMZ file!" << std::endl;
-                return ReadResult::ERROR_IN_READING_FILE;
-            }
-#else
-            OE_WARN << LC << "KMZ support is not enabled. You must build osgEarth with MINIZIP." << std::endl;
-            return ReadResult::ERROR_IN_READING_FILE;
-#endif // OSGEARTH_HAVE_MINIZIP
+            return URI(url + "/.kml").readNode( options );
         }
-
-        // propagate the source URI along to the stream reader
-        osg::ref_ptr<osgDB::Options> myOptions = options ?
-            new osgDB::Options( *options ) : new osgDB::Options();
-        myOptions->setPluginData( "osgEarth::ReaderWriterKML::ref_uri", (void*)&uri );
-
-        URIStream in( uri );
-        return readNode( in, options );
+        else
+        {
+            // propagate the source URI along to the stream reader
+            osg::ref_ptr<osgDB::Options> myOptions = Registry::instance()->cloneOrCreateOptions(options);
+            URIContext(url).store( myOptions.get() );
+            return readNode( URIStream(url), myOptions.get() );
+        }
     }
 
     ReadResult readNode(std::istream& in, const Options* options ) const
@@ -224,17 +92,33 @@ struct ReaderWriterKML : public osgDB::ReaderWriter
         const KMLOptions* kmlOptions =
             static_cast<const KMLOptions*>(options->getPluginData("osgEarth::KMLOptions") );
 
-        // an optional URI context for resolving relative paths:
-        URIContext uriContext;
-        const std::string* cxValue = static_cast<const std::string*>( options->getPluginData( "osgEarth::ReaderWriterKML::ref_uri") );
-        if ( cxValue )
-            uriContext = *cxValue;
+        // Grab the URIContext from the options (since we're reading from a stream)
+        URIContext uriContext( options );
 
         // fire up a KML reader and parse the data.
         KMLReader reader( mapNode, kmlOptions );
         osg::Node* node = reader.read( in, uriContext );
         return ReadResult(node);
     }
+
+#ifdef SUPPORT_KMZ
+
+    ReadResult openArchive( const std::string& url, ArchiveStatus status, unsigned int dummy, const osgDB::Options* options =0L ) const
+    {
+        // Find the archive for this thread. We store one KMZ archive instance per thread 
+        // so that the minizip library can work in parallel
+        osg::ref_ptr<KMZArchive>& kmz = const_cast<ReaderWriterKML*>(this)->_archive.get();
+        if ( !kmz.valid() )
+            kmz = new KMZArchive( URI(url) );
+
+        return ReadResult( kmz.release() );
+    }
+
+private:
+
+    Threading::PerThread< osg::ref_ptr<KMZArchive> > _archive;
+
+#endif // SUPPORT_KMZ
 };
 
 REGISTER_OSGPLUGIN( kml, ReaderWriterKML )

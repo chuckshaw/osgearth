@@ -48,7 +48,7 @@ KML_Placemark::build( const Config& conf, KMLContext& cx )
     MarkerSymbol* marker = style.get<MarkerSymbol>();
     if ( marker && marker->url().isSet() )
     {
-        iconURI = marker->url()->expr();
+        iconURI = URI( marker->url()->expr(), marker->url()->uriContext() );
     }
 
     std::string text = 
@@ -101,6 +101,12 @@ KML_Placemark::build( const Config& conf, KMLContext& cx )
             {
                 image = cx._options->defaultIconURI()->readImage();
             }
+        }
+
+        // apply the default text symbol for labeling, if necessary:
+        if ( !style.get<TextSymbol>() && cx._options->defaultTextSymbol().valid() )
+        {
+            style.addSymbol( cx._options->defaultTextSymbol().get() );
         }
 
         pNode = new PlacemarkNode( cx._mapNode, position, image, text, style );
