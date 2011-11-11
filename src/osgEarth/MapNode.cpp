@@ -22,6 +22,8 @@
 #include <osgEarth/Registry>
 #include <osgEarth/ShaderComposition>
 #include <osgEarth/OverlayDecorator>
+#include <osgEarth/TextureCompositor>
+#include <osgEarth/URI>
 #include <osg/ArgumentParser>
 #include <osg/PagedLOD>
 
@@ -129,10 +131,10 @@ MapNode::load(osg::ArgumentParser& args)
     {
         if ( args[i] && endsWith(args[i], ".earth") )
         {
-            osg::ref_ptr<osg::Node> output;
-            if ( HTTPClient::readNodeFile( args[i], output ) == HTTPClient::RESULT_OK )
+            ReadResult r = URI(args[i]).readNode();
+            if ( r.succeeded() )
             {
-                return dynamic_cast<MapNode*>( output.release() );
+                return r.release<MapNode>();
             }
         }
     }    
@@ -347,6 +349,15 @@ MapNode::getTerrainEngine() const
         me->dirtyBound();
     }
     return _terrainEngine.get();
+}
+
+void
+MapNode::setCompositorTechnique( TextureCompositorTechnique* tech )
+{
+    if ( _terrainEngine.valid() )
+    {
+        _terrainEngine->getTextureCompositor()->setTechnique( tech );
+    }
 }
 
 osg::Group*

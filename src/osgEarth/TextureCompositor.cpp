@@ -23,6 +23,7 @@
 #include <osgEarth/Capabilities>
 #include <osgEarth/ImageUtils>
 #include <osgEarth/Registry>
+#include <osgEarth/Map>
 #include <osg/Texture2DArray>
 #include <osg/Texture2D>
 #include <osg/Texture3D>
@@ -480,6 +481,14 @@ TextureCompositor::createSamplerFunction(UID                layerUID,
     }
 
     return result;
+}
+
+void
+TextureCompositor::setTechnique( TextureCompositorTechnique* tech )
+{
+    _tech = TerrainOptions::COMPOSITING_USER;
+    _impl = tech;
+    OE_INFO << LC << "Custom texture compositing technique installed" << std::endl;
 }
 
 void
