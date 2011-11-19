@@ -20,7 +20,7 @@
 #ifndef OSGEARTH_ANNOTATION_LABEL_NODE_H
 #define OSGEARTH_ANNOTATION_LABEL_NODE_H 1
 
-#include <osgEarthAnnotation/LocalizedNode>
+#include <osgEarthAnnotation/OrthoNode>
 #include <osgEarthSymbology/TextSymbol>
 #include <osgEarth/MapNode>
 
@@ -54,10 +54,15 @@ namespace osgEarth { namespace Annotation
             const std::string&      text,
             const TextSymbol*       symbol =0L );
 
+    public: // OrthoNode override
+
+        virtual void setAnnotationData( AnnotationData* data );
+
     protected:
         void init( const TextSymbol* symbol );
 
         std::string _text;
+        class osg::Geode* _geode;
     };
 
 } } // namespace osgEarth::Annotation

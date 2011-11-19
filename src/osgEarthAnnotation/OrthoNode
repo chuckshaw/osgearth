@@ -16,21 +16,19 @@
 * You should have received a copy of the GNU Lesser General Public License
 * along with this program.  If not, see <http://www.gnu.org/licenses/>
 */
-#ifndef OSGEARTH_ANNO_LOCALIZED_NODE_H
-#define OSGEARTH_ANNO_LOCALIZED_NODE_H 1
+#ifndef OSGEARTH_ANNO_ORTHO_NODE_H
+#define OSGEARTH_ANNO_ORTHO_NODE_H 1
 
 #include <osgEarthAnnotation/AnnotationNode>
 #include <osgEarth/SpatialReference>
-#include <osg/Transform>
+#include <osg/AutoTransform>
+#include <osg/MatrixTransform>
 
 namespace osgEarth { namespace Annotation
 {	
     using namespace osgEarth;
 
-    /**
-     * Base class for node that is localized at a specific geographic point.
-     */
-    class OSGEARTHANNO_EXPORT LocalizedNode : public AnnotationNode
+    class OSGEARTHANNO_EXPORT OrthoNode : public AnnotationNode
     {
     public:
         /**
@@ -62,31 +60,21 @@ namespace osgEarth { namespace Annotation
         void setHorizonCulling( bool value );
         bool getHorizonCulling() const;
 
-
-    public:
+    public: // osg::Node
 
         virtual void traverse( osg::NodeVisitor& nv );
-        
-    protected:
-        /**
-         * Constructs a new LocalizedNode.
-         *
-         * @param mapSRS  Spatial reference for position info
-         * @param pos     Initial position of the node (map coords)
-         * @param is2D    Whether to autotransform the node to face/scale to the screen
-         */
-        LocalizedNode( 
-            const SpatialReference* mapSRS,
-            const osg::Vec3d&       pos      =osg::Vec3d(0,0,0), 
-            bool                    is2D     =false );
-
-        osg::Transform* getTransform() { return _xform.get(); }
 
     protected:
+        OrthoNode( const SpatialReference* mapSRS, const osg::Vec3d& position );
+
+        /** Attaches a child node to the transforms. */
+        void attach( osg::Node* transformChild );
+
+    private:
         osg::observer_ptr<const SpatialReference> _mapSRS;
-        osg::ref_ptr<osg::Transform> _xform;
-        bool _horizonCulling;
-        bool _autoTransform;
+        osg::ref_ptr<osg::AutoTransform>          _autoxform;
+        osg::ref_ptr<osg::MatrixTransform>        _matxform;
+        bool                                      _horizonCulling;
     };
 
 } } // namespace osgEarth::Annotation
