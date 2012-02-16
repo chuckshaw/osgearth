@@ -75,8 +75,9 @@ AltitudeFilter::pushAndDontClamp( FeatureList& features, FilterContext& cx )
     for( FeatureList::iterator i = features.begin(); i != features.end(); ++i )
     {
         Feature* feature = i->get();
-        //double maxGeomZ     = -DBL_MAX;
-        //double minGeomZ     =  DBL_MAX;
+
+        double minHAT       =  DBL_MAX;
+        double maxHAT       = -DBL_MAX;
 
         double scaleZ = 1.0;
         if ( _altitude.valid() && _altitude->verticalScale().isSet() )
@@ -90,23 +91,23 @@ AltitudeFilter::pushAndDontClamp( FeatureList& features, FilterContext& cx )
         while( gi.hasMore() )
         {
             Geometry* geom = gi.next();
-            for( Geometry::iterator i = geom->begin(); i != geom->end(); ++i )
+            for( Geometry::iterator g = geom->begin(); g != geom->end(); ++g )
             {
-                i->z() *= scaleZ;
-                i->z() += offsetZ;
+                g->z() *= scaleZ;
+                g->z() += offsetZ;
 
-                //if ( i->z() > maxGeomZ )
-                //    maxGeomZ = i->z();
-                //if ( i->z() < minGeomZ )
-                //    minGeomZ = i->z();
+                if ( g->z() < minHAT )
+                    minHAT = g->z();
+                if ( g->z() > maxHAT )
+                    maxHAT = g->z();
             }
         }
 
-        //if ( minGeomZ != DBL_MAX )
-        //{
-        //    feature->set( "__min_geom_z", minGeomZ );
-        //    feature->set( "__max_geom_z", maxGeomZ );
-        //}
+        if ( minHAT != DBL_MAX )
+        {
+            feature->set( "__min_hat", minHAT );
+            feature->set( "__max_hat", maxHAT );
+        }
     }
 }
 
@@ -116,7 +117,8 @@ AltitudeFilter::pushAndClamp( FeatureList& features, FilterContext& cx )
     const Session* session = cx.getSession();
 
     // the map against which we'll be doing elevation clamping
-    MapFrame mapf = session->createMapFrame( Map::ELEVATION_LAYERS );
+    //MapFrame mapf = session->createMapFrame( Map::ELEVATION_LAYERS );
+    MapFrame mapf = session->createMapFrame( Map::TERRAIN_LAYERS );
 
     const SpatialReference* mapSRS = mapf.getProfile()->getSRS();
     osg::ref_ptr<const SpatialReference> featureSRS = cx.profile()->getSRS();
@@ -240,79 +242,8 @@ AltitudeFilter::pushAndClamp( FeatureList& features, FilterContext& cx )
 
             }
 
-
-#if 0
-            // clamps the entire array to the terrain using the specified resolution.
-            if ( collectHATs )
-            {
-                std::vector<double> elevations;
-                elevations.reserve( geom->size() );
-                if ( eq.getElevations( geom->asVector(), featureSRS, elevations, _maxRes ) )
-                {
-                    for( unsigned i=0; i<geom->size(); ++i )
-                    {
-                        osg::Vec3d& p    = (*geom)[i];
-                        double      mapZ = p.z() * scaleZ + offsetZ;
-
-                        // calculate Z in the map's vertical reference system.
-                        osg::Vec3d tempGeo;
-                        if ( !vertEquiv )
-                        {
-                            if ( featureSRS->transform(p, mapSRS->getGeographicSRS(), tempGeo) )
-                                mapZ = tempGeo.z();
-                        }
-                        
-                        // calculate the scaled and offset Z value:
-                        double z = mapZ * scaleZ + offsetZ;
-
-                        double hat, newMapZ;
-
-                        // in ABSOLUTE mode, the geometry's Z remains unchanged. Calculate the HAT
-                        // though so that we can extrude down if necessary.
-                        if ( _altitude->clamping() == AltitudeSymbol::CLAMP_ABSOLUTE )
-                        {
-                            hat     = z - elevations[i];
-                            newMapZ = z;
-                        }
-
-                        // in RELATIVE mode, the geometry's Z must be replaced with an absolute 
-                        // Z value. The HAT is equal to the original relative Z.
-                        else // if ( _altitude->clamping() == AltitydeSymbol::CLAMP_RELATIVE_TO_TERRAIN )
-                        {
-                            hat     = 
-                            newMapZ = z + elevations[i];
-                        }
-
-                        //double hat =
-                        //    _altitude->clamping() == AltitudeSymbol::CLAMP_ABSOLUTE ? z - elevations[i] :
-                        //    z;
-
-                        if ( hat > maxHAT )
-                            maxHAT = hat;
-                        if ( hat < minHAT )
-                            minHAT = hat;
-
-                        if ( elevations[i] > maxTerrainZ )
-                            maxTerrainZ = elevations[i];
-                        if ( elevations[i] < minTerrainZ )
-                            minTerrainZ = elevations[i];
-
-                        //mapZ = 
-                        //    _altitude->clamping() == AltitudeSymbol::CLAMP_ABSOLUTE ? z :
-                        //    z + elevations[i];
-
-                        p.z() = mapZ;
-                        if ( !vertEquiv )
-                        {
-                            tempGeo.z() = mapZ;
-                            if ( mapSRS->transform(tempGeo, featureSRS->getGeographicSRS(), tempGeo) )
-                                p.z() = tempGeo.z();
-                        }
-                    }
-                }
-#endif
             // Clamp - replace the geometry's Z with the terrain height.
-            else
+            else // CLAMP_TO_TERRAIN
             {
                 eq.getElevations( geom->asVector(), featureSRS, true, _maxRes );
                 
@@ -332,18 +263,13 @@ AltitudeFilter::pushAndClamp( FeatureList& features, FilterContext& cx )
                 }
             }
 
-            for( Geometry::iterator i = geom->begin(); i != geom->end(); ++i )
+            if ( !collectHATs )
             {
-                if ( !collectHATs )
+                for( Geometry::iterator i = geom->begin(); i != geom->end(); ++i )
                 {
                     i->z() *= scaleZ;
                     i->z() += offsetZ;
                 }
-
-                //if ( i->z() > maxGeomZ )
-                //    maxGeomZ = i->z();
-                //if ( i->z() < minGeomZ )
-                //    minGeomZ = i->z();
             }
         }
 
@@ -352,12 +278,6 @@ AltitudeFilter::pushAndClamp( FeatureList& features, FilterContext& cx )
             feature->set( "__min_hat", minHAT );
             feature->set( "__max_hat", maxHAT );
         }
-
-        //if ( minGeomZ != DBL_MAX )
-        //{
-        //    feature->set( "__min_geom_z", minGeomZ );
-        //    feature->set( "__max_geom_z", maxGeomZ );
-        //}
 
         if ( minTerrainZ != DBL_MAX )
         {
