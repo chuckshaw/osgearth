@@ -49,9 +49,8 @@ _scale         ( 1.0f, 1.0f, 1.0f )
     {
         _xform = new osg::MatrixTransform();
     }
-    _xform->getOrCreateStateSet()->setMode( GL_LIGHTING, 0 );
 
-    if ( _mapSRS.valid() )
+    if ( _mapSRS.valid() && _mapSRS->isGeographic() )
     {
         setHorizonCulling( true );
     }
@@ -113,7 +112,7 @@ LocalizedNode::setScale( const osg::Vec3f& scale )
 bool
 LocalizedNode::updateTransforms( const GeoPoint& p, osg::Node* patch )
 {
-    if ( _mapSRS.valid() )
+    if ( p.isValid() )
     {
         GeoPoint absPos(p);
         if ( !makeAbsolute(absPos, patch) )
@@ -122,18 +121,21 @@ LocalizedNode::updateTransforms( const GeoPoint& p, osg::Node* patch )
         osg::Matrixd local2world;
         absPos.createLocalToWorld( local2world );
         
-        // apply the local offset
+        // apply the local offsets
         local2world.preMult( osg::Matrix::translate(_localOffset) );
 
         if ( _autoTransform )
         {
             static_cast<osg::AutoTransform*>(_xform.get())->setPosition( local2world.getTrans() );
             static_cast<osg::AutoTransform*>(_xform.get())->setScale( _scale );
+            static_cast<osg::AutoTransform*>(_xform.get())->setRotation( _localRotation );
         }
         else
         {
             static_cast<osg::MatrixTransform*>(_xform.get())->setMatrix( 
-                osg::Matrix::scale(_scale) * local2world  );
+                osg::Matrix::scale(_scale) * 
+                osg::Matrix::rotate(_localRotation) *
+                local2world  );
         }
 
         
@@ -149,11 +151,14 @@ LocalizedNode::updateTransforms( const GeoPoint& p, osg::Node* patch )
         {
             static_cast<osg::AutoTransform*>(_xform.get())->setPosition( absPos );
             static_cast<osg::AutoTransform*>(_xform.get())->setScale( _scale );
+            static_cast<osg::AutoTransform*>(_xform.get())->setRotation( _localRotation );
         }
         else
         {
             static_cast<osg::MatrixTransform*>(_xform.get())->setMatrix(
-                osg::Matrix::scale(_scale) * osg::Matrix::translate(absPos) );
+                osg::Matrix::scale(_scale) * 
+                osg::Matrix::rotate(_localRotation) *
+                osg::Matrix::translate(absPos) );
         }
     }
 
@@ -180,9 +185,22 @@ LocalizedNode::getLocalOffset() const
 }
 
 void
+LocalizedNode::setLocalRotation( const osg::Quat& rotation )
+{
+    _localRotation = rotation;
+    setPosition( _mapPosition );
+}
+
+const osg::Quat&
+LocalizedNode::getLocalRotation() const
+{
+    return _localRotation;
+}
+
+void
 LocalizedNode::setHorizonCulling( bool value )
 {
-    if ( _horizonCulling != value && _mapSRS.valid() )
+    if ( _horizonCulling != value && _mapSRS.valid() && _mapSRS->isGeographic() )
     {
         _horizonCulling = value;
 
