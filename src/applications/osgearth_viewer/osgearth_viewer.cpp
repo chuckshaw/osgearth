@@ -43,6 +43,7 @@
 #include <osgEarthUtil/SkyNode>
 #include <osgEarthUtil/LatLongFormatter>
 #include <osgEarthUtil/MouseCoordsTool>
+#include <osgEarthUtil/FeatureQueryTool>
 
 #define LC "[viewer] "
 
@@ -392,7 +393,7 @@ main(int argc, char** argv)
 
             if ( useSky || useOcean || !dontUseAutoClip )
             {
-                viewer.getCamera()->addCullCallback( new AutoClipPlaneCullCallback(mapNode->getMap()) );
+                viewer.getCamera()->addCullCallback( new AutoClipPlaneCullCallback(mapNode) );
                 OE_INFO << LC << "Activated auto-clip callback" << std::endl;
             }
         }
@@ -475,6 +476,14 @@ main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::ThreadingHandler());
     viewer.addEventHandler(new osgViewer::LODScaleHandler());
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
+
+    // Feature query tool setup:
+    VBox* featureQueryContainer = ControlCanvas::get(&viewer, false)->addControl( new VBox() );
+    featureQueryContainer->setHorizAlign( Control::ALIGN_RIGHT );
+    FeatureQueryTool* queryTool = new FeatureQueryTool(mapNode);
+    queryTool->addCallback( new FeatureHighlightCallback() );
+    queryTool->addCallback( new FeatureReadoutCallback(featureQueryContainer) );
+    viewer.addEventHandler( queryTool );
 
     return viewer.run();
 }
