@@ -204,6 +204,8 @@ struct OgrUtils
             case osgEarth::Symbology::Geometry::TYPE_RING:
                 requestedType = wkbLinearRing;
                 break;            
+            case Geometry::TYPE_UNKNOWN: break;
+            case Geometry::TYPE_MULTI: break;
             }
         }
 
@@ -269,7 +271,7 @@ struct OgrUtils
         int numAttrs = OGR_F_GetFieldCount(handle); 
         for (int i = 0; i < numAttrs; ++i) 
         { 
-            void* field_handle_ref = OGR_F_GetFieldDefnRef( handle, i ); 
+            OGRFieldDefnH field_handle_ref = OGR_F_GetFieldDefnRef( handle, i ); 
 
             // get the field name and convert to lower case:
             const char* field_name = OGR_Fld_GetNameRef( field_handle_ref ); 
