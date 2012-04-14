@@ -25,6 +25,7 @@
 #include <osg/KdTree>
 #include <osg/TriangleFunctor>
 #include <vector>
+#include <string>
 
 using namespace osgEarth;
 

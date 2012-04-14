@@ -35,6 +35,7 @@
 
 #include <sstream>
 #include <iomanip>
+#include <cmath>
 
 #define LC "[GeoData] "
 
@@ -43,8 +44,24 @@ using namespace osgEarth;
 
 namespace
 {
+    double s_cint( double x )
+    {
+        double dummy;
+        if (modf(x,&dummy) >= .5)
+            return x >= 0.0 ? ceil(x) : floor(x);
+        else
+            return x < 0.0 ? ceil(x) : floor(x);
+    }
+
+    double s_roundNplaces( double x, int n )
+    {
+        double off = pow(10.0, n);
+        return s_cint(x*off)/off;
+    }
+
     void s_normalizeLongitude( double& x )
     {
+        //x = s_roundNplaces( x, 6 );
         while( x < -180. ) x += 360.;
         while( x >  180. ) x -= 360.;
     }
@@ -865,7 +882,7 @@ GeoExtent::toString() const
     if ( !isValid() )
         buf << "INVALID";
     else
-        buf << std::fixed << std::setprecision(4) << "SW=" << west() << "," << south() << " NE=" << east() << "," << north();
+        buf << std::setprecision(12) << "SW=" << west() << "," << south() << " NE=" << east() << "," << north();
 
     buf << ", SRS=" << _srs->getName();
 
@@ -1138,7 +1155,6 @@ reprojectImage(osg::Image* srcImage, const std::string srcWKT, double srcMinX, d
                const std::string destWKT, double destMinX, double destMinY, double destMaxX, double destMaxY,
                int width = 0, int height = 0)
 {
-    //OE_NOTICE << "Reprojecting..." << std::endl;
     GDAL_SCOPED_LOCK;
 	osg::Timer_t start = osg::Timer::instance()->tick();
 
@@ -1377,9 +1393,12 @@ GeoImage::reproject(const SpatialReference* to_srs, const GeoExtent* to_extent, 
 
     osg::Image* resultImage = 0L;
 
-    if ( getSRS()->isUserDefined() || to_srs->isUserDefined() ||
-        ( getSRS()->isMercator() && to_srs->isGeographic() ) ||
-        ( getSRS()->isGeographic() && to_srs->isMercator() ) )
+    if ( getSRS()->isUserDefined()      || 
+        to_srs->isUserDefined()         ||
+        getSRS()->isSphericalMercator() ||
+        to_srs->isSphericalMercator() )
+        //( getSRS()->isSphericalMercator() && to_srs->isGeographic() ) ||
+        //( getSRS()->isGeographic() && to_srs->isSphericalMercator() ) )
     {
         // if either of the SRS is a custom projection, we have to do a manual reprojection since
         // GDAL will not recognize the SRS.
