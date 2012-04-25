@@ -19,7 +19,7 @@
 
 #include <osgEarthAnnotation/LocalizedNode>
 #include <osgEarthAnnotation/Decluttering>
-#include <osgEarth/Utils>
+#include <osgEarth/CullingUtils>
 #include <osgEarth/MapNode>
 #include <osg/AutoTransform>
 #include <osg/MatrixTransform>
@@ -166,6 +166,9 @@ LocalizedNode::updateTransforms( const GeoPoint& p, osg::Node* patch )
                 osg::Matrix::translate(absPos) );
         }
     }
+    
+
+    dirtyBound();
 
     return true;
 }

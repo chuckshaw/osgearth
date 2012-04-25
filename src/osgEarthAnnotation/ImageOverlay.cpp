@@ -76,6 +76,8 @@ ImageOverlay::init()
 
     double height = 0;
     osg::Geometry* geometry = new osg::Geometry();
+    geometry->setUseVertexBufferObjects(true);
+
     const osg::EllipsoidModel* ellipsoid = getMapNode()->getMapSRS()->getEllipsoid();
 
     const SpatialReference* mapSRS = getMapNode()->getMapSRS();
@@ -100,6 +102,8 @@ ImageOverlay::init()
     }
 
     geometry->setVertexArray( verts );
+    if ( verts->getVertexBufferObject() )
+        verts->getVertexBufferObject()->setUsage(GL_STATIC_DRAW_ARB);
 
     osg::Vec4Array* colors = new osg::Vec4Array(1);
     (*colors)[0] = osg::Vec4(1,1,1,_alpha);
@@ -293,7 +297,7 @@ ImageOverlay::setBoundsAndRotation(const osgEarth::Bounds& b, const Angular& rot
         // there must be a better way, but my internet is down so i can't look it up with now..
 
         osg::ref_ptr<const SpatialReference> srs = SpatialReference::create("wgs84");
-        osg::ref_ptr<const SpatialReference> utm = srs->createUTMFromLongitude( c.x() );
+        osg::ref_ptr<const SpatialReference> utm = srs->createUTMFromLonLat( c.x(), c.y() );
 
         osg::Vec3d ll_utm, ul_utm, ur_utm, lr_utm, c_utm;
         
