@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
- * Copyright 2008-2010 Pelican Mapping
+ * Copyright 2008-2012 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -429,7 +429,7 @@ SinglePassTerrainTechnique::createGeoImage( const CustomColorLayer& colorLayer,
             layerLocator = layerLocator->getGeographicFromGeocentric();
 
         const GeoExtent& imageExtent = layerLocator->getDataExtent();
-        image = GeoImage( colorLayer.getImage(), imageExtent ); //const_cast<osg::Image*>(colorLayer.getImage()), imageExtent );
+        image = GeoImage( colorLayer.getImage(), imageExtent );
         return true;
     }
     return false;
@@ -943,19 +943,19 @@ SinglePassTerrainTechnique::createGeometry( const TileFrame& tilef )
     {
       int min_i = (int)floor((*mr)._ndcMin.x() * (double)(numColumns-1));
       if (min_i < 0) min_i = 0;
-      if (min_i >= numColumns) min_i = numColumns - 1;
+      if (min_i >= (int)numColumns) min_i = numColumns - 1;
 
       int min_j = (int)floor((*mr)._ndcMin.y() * (double)(numRows-1));
       if (min_j < 0) min_j = 0;
-      if (min_j >= numColumns) min_j = numColumns - 1;
+      if (min_j >= (int)numColumns) min_j = numColumns - 1;
 
       int max_i = (int)ceil((*mr)._ndcMax.x() * (double)(numColumns-1));
       if (max_i < 0) max_i = 0;
-      if (max_i >= numColumns) max_i = numColumns - 1;
+      if (max_i >= (int)numColumns) max_i = numColumns - 1;
 
       int max_j = (int)ceil((*mr)._ndcMax.y() * (double)(numRows-1));
       if (max_j < 0) max_j = 0;
-      if (max_j >= numColumns) max_j = numColumns - 1;
+      if (max_j >= (int)numColumns) max_j = numColumns - 1;
 
       if (min_i >= 0 && max_i >= 0 && min_j >= 0 && max_j >= 0)
       {
@@ -1779,7 +1779,7 @@ SinglePassTerrainTechnique::createGeometry( const TileFrame& tilef )
 
         //Add a primative set for each continuous skirt strip
         skirtBreaks.push_back(skirtVerts->size());
-        for (int p=1; p < skirtBreaks.size(); p++)
+        for (int p=1; p < (int)skirtBreaks.size(); p++)
           skirt->addPrimitiveSet( new osg::DrawArrays( GL_TRIANGLE_STRIP, skirtBreaks[p-1], skirtBreaks[p] - skirtBreaks[p-1] ) );
     }
     
@@ -1962,13 +1962,13 @@ SinglePassTerrainTechnique::createGeometry( const TileFrame& tilef )
 
   
 
-    MeshConsolidator::run( *surface );
+    MeshConsolidator::convertToTriangles( *surface );
 
     if ( skirt )
-        MeshConsolidator::run( *skirt );
+        MeshConsolidator::convertToTriangles( *skirt );
 
     for (MaskRecordVector::iterator mr = masks.begin(); mr != masks.end(); ++mr)
-        MeshConsolidator::run( *((*mr)._geom) );
+        MeshConsolidator::convertToTriangles( *((*mr)._geom) );
     
    
     if (osgDB::Registry::instance()->getBuildKdTreesHint()==osgDB::ReaderWriter::Options::BUILD_KDTREES &&

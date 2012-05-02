@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
- * Copyright 2008-2010 Pelican Mapping
+ * Copyright 2008-2012 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -403,9 +403,9 @@ ImageUtils::isEmptyImage(const osg::Image* image, float alphaThreshold)
         return false;
 
     PixelReader read(image);
-    for(unsigned t=0; t<image->t(); ++t) 
+    for(unsigned t=0; t<(unsigned)image->t(); ++t) 
     {
-        for(unsigned s=0; s<image->s(); ++s)
+        for(unsigned s=0; s<(unsigned)image->s(); ++s)
         {
             osg::Vec4 color = read(s, t);
             if ( color.a() > alphaThreshold )

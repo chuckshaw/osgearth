@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
- * Copyright 2008-2010 Pelican Mapping
+ * Copyright 2008-2012 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -22,6 +22,7 @@
 #include <osgEarthAnnotation/AnnotationEditing>
 #include <osgEarth/ECEF>
 #include <osgEarth/Registry>
+#include <osgEarth/Capabilities>
 #include <osgViewer/View>
 #include <osg/Depth>
 
@@ -189,8 +190,8 @@ FeatureManipTool::onHit( FeatureSourceIndexNode* index, FeatureID fid, const Eve
             GeoPoint anchorMap;
             anchorMap.fromWorld( _mapNode->getMapSRS(), anchorWorld );
             anchorMap.z() = 0;
-            anchorMap.altitudeMode() = AltitudeMode::RELATIVE_TO_TERRAIN;
-            anchorMap.transformZ( AltitudeMode::ABSOLUTE, _mapNode->getTerrain() );
+            anchorMap.altitudeMode() = ALTMODE_RELATIVE;
+            anchorMap.transformZ( ALTMODE_ABSOLUTE, _mapNode->getTerrain() );
 
             anchorMap.toWorld( anchorWorld );
 

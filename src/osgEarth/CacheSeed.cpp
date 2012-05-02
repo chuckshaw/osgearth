@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
-* Copyright 2008-2010 Pelican Mapping
+* Copyright 2008-2012 Pelican Mapping
 * http://osgearth.org
 *
 * osgEarth is free software; you can redistribute it and/or modify
@@ -80,7 +80,7 @@ void CacheSeed::seed( Map* map )
         {
             hasCaches = true;
 
-			if (opt.minLevel().isSet() && opt.minLevel().get() < src_min_level)
+			if (opt.minLevel().isSet() && (int)opt.minLevel().get() < src_min_level)
                 src_min_level = opt.minLevel().get();
 			if (opt.maxLevel().isSet() && opt.maxLevel().get() > src_max_level)
                 src_max_level = opt.maxLevel().get();
@@ -113,7 +113,7 @@ void CacheSeed::seed( Map* map )
         {
             hasCaches = true;
 
-			if (opt.minLevel().isSet() && opt.minLevel().get() < src_min_level)
+			if (opt.minLevel().isSet() && (int)opt.minLevel().get() < src_min_level)
                 src_min_level = opt.minLevel().get();
 			if (opt.maxLevel().isSet() && opt.maxLevel().get() > src_max_level)
                 src_max_level = opt.maxLevel().get();

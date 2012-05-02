@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
- * Copyright 2008-2010 Pelican Mapping
+ * Copyright 2008-2012 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -235,7 +235,7 @@ KMZArchive::readToBuffer( const std::string& fileInZip, std::ostream& iobuf ) co
         }
         if ( err > 0 )
         {
-            for( unsigned i=0; i<err; ++i )
+            for( unsigned i=0; i<(unsigned)err; ++i )
             {
                 iobuf.put( *(((char*)_buf)+i) );
             }

@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
-* Copyright 2008-2010 Pelican Mapping
+* Copyright 2008-2012 Pelican Mapping
 * http://osgearth.org
 *
 * osgEarth is free software; you can redistribute it and/or modify
@@ -1157,10 +1157,10 @@ public:
                 else
                 {
                     //Sample each point exactly
-                    for (unsigned int c = 0; c < tileSize; ++c)
+                    for (unsigned int c = 0; c < (unsigned int)tileSize; ++c)
                     {
                         double geoX = xmin + (dx * (double)c); 
-                        for (unsigned int r = 0; r < tileSize; ++r)
+                        for (unsigned int r = 0; r < (unsigned int)tileSize; ++r)
                         {
                             double geoY = ymin + (dy * (double)r); 
                             *(image->data(c,r) + 0) = (unsigned char)getInterpolatedValue(bandRed,  geoX,geoY,false); 

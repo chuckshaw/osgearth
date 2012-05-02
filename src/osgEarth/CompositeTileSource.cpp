@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
- * Copyright 2008-2010 Pelican Mapping
+ * Copyright 2008-2012 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -205,8 +205,8 @@ CompositeTileSource::createImage(const TileKey&        key,
             }
 
             // check that this source is within the level bounds:
-            if (minLevel > key.getLevelOfDetail() ||
-                maxLevel < key.getLevelOfDetail() )
+            if (minLevel > (int)key.getLevelOfDetail() ||
+                maxLevel < (int)key.getLevelOfDetail() )
             {
                 continue;
             }

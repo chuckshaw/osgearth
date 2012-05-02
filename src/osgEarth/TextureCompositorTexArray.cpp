@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
- * Copyright 2008-2010 Pelican Mapping
+ * Copyright 2008-2012 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -29,6 +29,7 @@
 #include <osgEarth/SparseTexture2DArray>
 #include <osgEarth/ShaderUtils>
 #include <osgEarth/TileKey>
+#include <osgEarth/Capabilities>
 
 using namespace osgEarth;
 
@@ -39,6 +40,36 @@ using namespace osgEarth;
 
 namespace
 {
+
+    static osg::Shader*
+    s_createTextureVertSetupShaderFunction( const TextureLayout& layout )
+    {
+        std::stringstream buf;
+       
+        const TextureLayout::TextureSlotVector& slots = layout.getTextureSlots();
+
+        buf << "#version 130 \n";
+        buf << "void osgearth_vert_setupTexturing() \n"
+            << "{ \n";
+
+        // Set up the texture coordinates for each active slot (primary and secondary).
+        // Primary slots are the actual image layer's texture image unit. A Secondary
+        // slot is what an image layer uses for LOD blending, and is set on a per-layer basis.
+        for( int slot = 0; slot < (int)slots.size(); ++slot )
+        {
+            if ( slots[slot] >= 0 )
+            {
+                buf << "    gl_TexCoord["<< slot <<"] = gl_MultiTexCoord" << slot << ";\n";
+            }
+        }
+            
+        buf << "} \n";
+
+        std::string str;
+        str = buf.str();
+        return new osg::Shader( osg::Shader::VERTEX, str );
+    }
+
 static osg::Shader*
 s_createTextureFragShaderFunction( const TextureLayout& layout, bool blending, float blendTime )
 {
@@ -382,6 +413,10 @@ void
 TextureCompositorTexArray::updateMasterStateSet( osg::StateSet* stateSet, const TextureLayout& layout ) const
 {
     VirtualProgram* vp = static_cast<VirtualProgram*>( stateSet->getAttribute(osg::StateAttribute::PROGRAM) );
+
+    vp->setShader(
+        "osgearth_vert_setupTexturing",
+        s_createTextureVertSetupShaderFunction(layout) );
 
     vp->setShader( 
         "osgearth_frag_applyTexturing", 

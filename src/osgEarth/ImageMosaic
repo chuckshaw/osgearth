@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
- * Copyright 2008-2010 Pelican Mapping
+ * Copyright 2008-2012 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -19,14 +19,10 @@
 #ifndef OSGEARTH_COMPOSITING_H
 #define OSGEARTH_COMPOSITING_H 1
 
+#include <osgEarth/Common>
+#include <osgEarth/TileKey>
 #include <osg/Referenced>
 #include <osg/Image>
-#include <osg/MixinVector>
-#include <osgEarth/Common>
-#include <osgEarth/GeoData>
-#include <osgEarth/TileKey>
-#include <osgEarth/TileSource>
-
 #include <vector>
 
 namespace osgEarth
@@ -62,6 +58,7 @@ namespace osgEarth
     {
     public:
         ImageMosaic();
+        virtual ~ImageMosaic();
 
         osg::Image* createImage();
 
@@ -75,7 +72,6 @@ namespace osgEarth
 
     protected:
 
-        virtual ~ImageMosaic();
         TileImageList _images;
     };
 }

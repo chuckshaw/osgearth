@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
- * Copyright 2008-2010 Pelican Mapping
+ * Copyright 2008-2012 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -111,7 +111,8 @@ _supportsStencilWrap    ( true ),
 _supportsTwoSidedStencil( false ),
 _supportsTexture2DLod   ( false ),
 _supportsMipmappedTextureUpdates( false ),
-_supportsDepthPackedStencilBuffer( false )
+_supportsDepthPackedStencilBuffer( false ),
+_supportsOcclusionQuery ( false )
 {
     // little hack to force the osgViewer library to link so we can create a graphics context
     osgViewerGetVersion();
@@ -205,6 +206,9 @@ _supportsDepthPackedStencilBuffer( false )
 
         _supportsDepthPackedStencilBuffer = osg::isGLExtensionSupported( id, "GL_EXT_packed_depth_stencil" );
         OE_INFO << LC << "  depth-packed stencil = " << SAYBOOL(_supportsDepthPackedStencilBuffer) << std::endl;
+
+        _supportsOcclusionQuery = osg::isGLExtensionSupported( id, "GL_ARB_occlusion_query" );
+        OE_INFO << LC << "  occulsion query = " << SAYBOOL(_supportsOcclusionQuery) << std::endl;
 
         //_supportsTexture2DLod = osg::isGLExtensionSupported( id, "GL_ARB_shader_texture_lod" );
         //OE_INFO << LC << "  texture2DLod = " << SAYBOOL(_supportsTexture2DLod) << std::endl;

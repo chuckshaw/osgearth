@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
-* Copyright 2008-2010 Pelican Mapping
+* Copyright 2008-2012 Pelican Mapping
 * http://osgearth.org
 *
 * osgEarth is free software; you can redistribute it and/or modify
@@ -122,6 +122,8 @@ PlaceNode::setText( const std::string& text )
         OE_WARN << LC << "Illegal state: cannot change a LabelNode that is not dynamic" << std::endl;
         return;
     }
+
+    _text = text;
 
     const osg::Geode::DrawableList& list = _geode->getDrawableList();
     for( osg::Geode::DrawableList::const_iterator i = list.begin(); i != list.end(); ++i )

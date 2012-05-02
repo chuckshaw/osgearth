@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
-* Copyright 2008-2010 Pelican Mapping
+* Copyright 2008-2012 Pelican Mapping
 * http://osgearth.org
 *
 * osgEarth is free software; you can redistribute it and/or modify
@@ -92,6 +92,7 @@ main(int argc, char** argv)
             readout->setHorizAlign( Control::ALIGN_RIGHT );
             readout->setBackColor( Color(Color::Black,0.8) );
             tool->addCallback( new FeatureReadoutCallback(readout) );
+            tool->addCallback( new FeatureHighlightCallback() );
         }
 
         return viewer.run();
