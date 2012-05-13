@@ -23,6 +23,7 @@
 #include <osgEarthFeatures/BuildTextFilter>
 #include <osgEarthFeatures/LabelSource>
 #include <osgEarth/Utils>
+#include <osgEarth/Registry>
 #include <osg/Depth>
 
 #define LC "[PlaceNode] "
@@ -49,17 +50,14 @@ _geode  ( 0L )
 }
 
 PlaceNode::PlaceNode(MapNode*           mapNode,
-                     double             x,
-                     double             y,
-                     osg::Image*        image,
+                     const GeoPoint&    position,
                      const std::string& text,
                      const Style&       style ) :
 
-OrthoNode( mapNode, osg::Vec3d(x, y, 0) ),
-_image   ( image ),
-_text    ( text ),
-_style   ( style ),
-_geode   ( 0L )
+OrthoNode( mapNode, position ),
+_text   ( text ),
+_style  ( style ),
+_geode  ( 0L )
 {
     init();
 }
@@ -71,10 +69,55 @@ PlaceNode::init()
 
     osg::Drawable* text = 0L;
 
+    if ( !_image.valid() && _style.getSymbol<MarkerSymbol>() )
+    {
+        _image = _style.getSymbol<MarkerSymbol>()->getImage();
+    }
+
     if ( _image.get() )
     {
         // this offset anchors the image at the bottom
-        osg::Vec2s offset( 0.0, _image->t()/2.0 );
+        osg::Vec2s offset;
+        MarkerSymbol* marker = _style.get<MarkerSymbol>();
+        if ((marker == NULL) || !marker->alignment().isSet())
+        {	
+            // default to bottom center
+            offset.set(0.0, (_image->t() / 2.0));
+        }
+        else
+        {	// default to bottom center
+            switch (marker->alignment().value())
+            {
+            case MarkerSymbol::ALIGN_LEFT_TOP:
+                offset.set((_image->s() / 2.0), -(_image->t() / 2.0));
+                break;
+            case MarkerSymbol::ALIGN_LEFT_CENTER:
+                offset.set((_image->s() / 2.0), 0.0);
+                break;
+            case MarkerSymbol::ALIGN_LEFT_BOTTOM:
+                offset.set((_image->s() / 2.0), (_image->t() / 2.0));
+                break;
+            case MarkerSymbol::ALIGN_CENTER_TOP:
+                offset.set(0.0, -(_image->t() / 2.0));
+                break;
+            case MarkerSymbol::ALIGN_CENTER_CENTER:
+                offset.set(0.0, 0.0);
+                break;
+            case MarkerSymbol::ALIGN_CENTER_BOTTOM:
+            default:
+                offset.set(0.0, (_image->t() / 2.0));
+                break;
+            case MarkerSymbol::ALIGN_RIGHT_TOP:
+                offset.set(-(_image->s() / 2.0), -(_image->t() / 2.0));
+                break;
+            case MarkerSymbol::ALIGN_RIGHT_CENTER:
+                offset.set(-(_image->s() / 2.0), 0.0);
+                break;
+            case MarkerSymbol::ALIGN_RIGHT_BOTTOM:
+                offset.set(-(_image->s() / 2.0), (_image->t() / 2.0));
+                break;
+            }
+        }
         osg::Geometry* imageGeom = AnnotationUtils::createImageGeometry( _image.get(), offset );
         if ( imageGeom )
             _geode->addDrawable( imageGeom );
@@ -82,7 +125,7 @@ PlaceNode::init()
         text = AnnotationUtils::createTextDrawable(
             _text,
             _style.get<TextSymbol>(),
-            osg::Vec3( _image->s()/2.0 + 2, _image->t()/2.0, 0 ) );
+            osg::Vec3( (offset.x() + (_image->s() / 2.0) + 2), offset.y(), 0 ) );
     }
     else
     {
